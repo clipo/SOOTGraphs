@@ -1,0 +1,165 @@
+library(shiny)
+library(data.table)
+library(tidyverse)
+library(purrr)
+library(ggplot2)
+library(viridisLite)
+#library("shiny.collections")
+
+## SOOT Aggregation
+
+#The following script was written by Professor Xingye Qiao of the Math Department, 
+#and modified for the Cloud by Professor Nancy Um of Art History and the Harpur 
+#Dean's Office, Binghamton University, to aid in the conversion of SOOT 
+#(Student Opinion of Teaching) data into an aggregated format.
+
+#In order to use this script, you must upload your own data. Navigate to the #
+#SOOT surveys page in `myBinghamton`, which can be found under the 
+#`Academic Services` tab. For each relevant course, select `Download.csv`. 
+#Do not rename the files. Upload all the .csv files at the same time. 
+
+
+
+ui <- fluidPage(
+    # Application title
+    title = "SOOT Processing",
+    fluidRow(
+        column(width = 4,
+               fileInput("csvs",
+                         label="Upload SOOT CSV files here",
+                         multiple = TRUE)),
+        column(width = 4,
+               br(),
+               actionButton("process", "Process uploaded data")
+        )
+    ),
+    fluidRow(
+        # Main panel for displaying outputs ----
+            plotOutput("overall_plot")
+        ),
+    fluidRow(
+        # Button
+        downloadButton("downloadOverallPlot", "Download Overall Plot")
+    ),
+    fluidRow(
+        # Main panel for displaying outputs ----
+               plotOutput("term_plot")
+    ),
+    fluidRow(
+        downloadButton("downloadTermPlot", "Download Aggregated Term Plot")
+    )
+)
+
+server <- function(input, output) {
+    observeEvent(input$process, {
+        
+        info<-tibble(course = character(), term = character())
+        nfiles = nrow(input$csvs) 
+        csv = list()
+        for (i in 1 : nfiles)
+        {
+            
+            csv[[i]] = read.csv(input$csvs$datapath[i])
+            
+        }
+        files <- input$csvs$datapath
+        terms=list()
+        courses=list()
+        for(i in 1:length(files)){
+            file_info <-  str_split(input$csvs$name[i], "-|_|\\.")
+            terms[i]<-unlist(file_info)[3]
+            courses[i]<-unlist(file_info)[1]
+        }
+
+        # Generate data frame
+        full = NULL
+        
+        for(i in 1:length(files)){
+
+            full = rbind(full, as_tibble(read.csv(files[i],header=T)) 
+                         %>% mutate(course = unlist(courses[i]), term = unlist(terms[i])))
+            #full <- full %>% add_column(course = unlist(courses[i]), term = unlist(terms[i]))
+        }
+
+        # Aggregate the info by question
+        instructor_related_ques = full %>% filter(QUES_TEXT %in% c("The instructor is well prepared for class.",
+                                                                   "The instructor demonstrates a thorough knowledge of the subject.",
+                                                                   "The instructor communicates his/her subject well.",
+                                                                   "The instructor explains complex ideas clearly.",
+                                                                   "The instructor stimulates my interest in the core subject.",
+                                                                   "The instructor is receptive to questions.",
+                                                                   "The instructor is available to help me outside of class.",
+                                                                   "The instructor encourages me to think analytically.",
+                                                                   "Overall, the instructor is an effective teacher.")) %>% 
+            mutate(fall.spring = ifelse(nchar(term)==6,substr(term,1,4),substr(term,1,3)),
+                   year = ifelse(nchar(term)==6,substr(term,5,6),substr(term,4,5)),
+                   term_month = ifelse(fall.spring=="FALL", 9, 2)) %>% 
+            unite(term, year, term_month, fall.spring)
+        
+        ques_count = instructor_related_ques %>% 
+            group_by(QUES_TEXT,term,course) %>% 
+            summarize(ques_count = sum(ANS_COUNT))
+        
+        percentages_overall = instructor_related_ques %>% 
+            left_join(ques_count) %>% 
+            group_by(QUES_TEXT, ANS_TEXT) %>% 
+            summarise(mean_PCT = sum(ANS_PCT*ques_count, na.rm = T)/sum(ques_count)) %>% 
+            mutate(Answer = factor(ANS_TEXT, levels=c("Not Applicable", "Very Low or Never", "Low", "Average", "High", "Very High or Always")), QUES_TEXT = factor(QUES_TEXT,levels = c("The instructor is well prepared for class.", "The instructor demonstrates a thorough knowledge of the subject.", "The instructor communicates his/her subject well.", "The instructor explains complex ideas clearly.", "The instructor stimulates my interest in the core subject.", "The instructor is receptive to questions.", "The instructor is available to help me outside of class.", "The instructor encourages me to think analytically.", "Overall, the instructor is an effective teacher.")))
+        
+        # Generate the plot
+        overall_plot <- percentages_overall %>% 
+            ggplot(aes(x=QUES_TEXT, y = mean_PCT, fill = Answer)) +
+            geom_bar(stat="identity", position="stack")+
+            theme(axis.text.x=element_text(size=8, angle = -45, hjust = 0, face = "bold"))+
+            theme(legend.title = element_text(size=8)) +
+            theme(legend.text = element_text(size=8)) +
+            scale_fill_viridis_d()+labs(x = "", y = "Percentage")
+        
+        output$overall_plot <- renderPlot({
+            overall_plot
+        }) 
+        output$downloadOverallPlot <- downloadHandler(
+            filename = "OverallPlot.png",
+            content = function(file) {
+                ggsave(file,overall_plot)
+            }
+        )
+        
+        percentages_by_term = instructor_related_ques %>% 
+            left_join(ques_count) %>% 
+            group_by(QUES_TEXT, ANS_TEXT, term) %>% 
+            summarise(mean_PCT = sum(ANS_PCT*ques_count, na.rm = T)/sum(ques_count)) %>% 
+            mutate(Answer = factor(ANS_TEXT, levels=c("Not Applicable", "Very Low or Never", "Low", "Average", "High", "Very High or Always")), 
+                   QUES_TEXT = factor(QUES_TEXT,levels = c("The instructor is well prepared for class.", "The instructor demonstrates a thorough knowledge of the subject.", "The instructor communicates his/her subject well.", "The instructor explains complex ideas clearly.", "The instructor stimulates my interest in the core subject.", "The instructor is receptive to questions.", "The instructor is available to help me outside of class.", "The instructor encourages me to think analytically.", "Overall, the instructor is an effective teacher.")))
+        
+        # Create string wrap so that the titles are legible
+        swr = function(percentages_by_term, nwrap=20) {
+            paste(strwrap(percentages_by_term, width=nwrap), collapse="\n")
+        }
+        swr = Vectorize(swr)
+        
+        percentages_by_term$QUES_TEXT = swr(percentages_by_term$QUES_TEXT)
+        
+        # Generate plot
+        term_plot <- percentages_by_term %>% 
+            ggplot(aes(x=term, y = mean_PCT, fill = Answer)) +
+            geom_bar(stat="identity", position="stack")+
+            theme(axis.text.x=element_text(size = 8, angle = -45, hjust = 0, face = "bold"))+
+            scale_fill_viridis_d()+labs(x = "", y = "Percentage") + facet_wrap(~QUES_TEXT)
+        
+        output$term_plot <- renderPlot({
+            term_plot
+        })
+        output$downloadTermPlot <- downloadHandler(
+            filename = "TermPlot.png",
+            content = function(file) {
+                ggsave(file,termplot)
+            }
+        )
+    })
+}        
+
+
+
+shinyApp(ui, server)
+
