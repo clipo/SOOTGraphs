@@ -69,6 +69,15 @@ ui <- fluidPage(
         downloadButton("downloadTermPlot", "Download Aggregated Term Plot"),
         downloadButton("downloadTermData", "Download Aggregated Term Data as CSV")
     ),
+    h2("Results Aggregated by Course"),
+    fluidRow(
+        # Main panel for displaying outputs ----
+        plotOutput("course_plot")
+    ),
+    fluidRow(
+        downloadButton("downloadCoursePlot", "Download Aggregated Course Plot"),
+        downloadButton("downloadCourseData", "Download Aggregated Course Data as CSV")
+    ),
     h2("Course Inventory"),
     p("Generate a course inventory, which includes the number of responses for each course."),
     fluidRow(
@@ -197,6 +206,45 @@ server <- function(input, output) {
                 write.table(percentages_by_term, file, sep = ",", row.names = FALSE)
                 }
             )
+        
+        percentages_by_course = instructor_related_ques %>% 
+            left_join(ques_count) %>% 
+            group_by(QUES_TEXT, ANS_TEXT, course) %>% 
+            summarise(mean_PCT = sum(ANS_PCT*ques_count, na.rm = T)/sum(ques_count)) %>% 
+            mutate(Answer = factor(ANS_TEXT, levels=c("Not Applicable", "Very Low or Never", "Low", "Average", "High", "Very High or Always")), 
+                   QUES_TEXT = factor(QUES_TEXT,levels = c("The instructor is well prepared for class.", "The instructor demonstrates a thorough knowledge of the subject.", "The instructor communicates his/her subject well.", "The instructor explains complex ideas clearly.", "The instructor stimulates my interest in the core subject.", "The instructor is receptive to questions.", "The instructor is available to help me outside of class.", "The instructor encourages me to think analytically.", "Overall, the instructor is an effective teacher.")))
+        
+        # Create string wrap so that the titles are legible
+        swr = function(percentages_by_course, nwrap=20) {
+            paste(strwrap(percentages_by_course, width=nwrap), collapse="\n")
+        }
+        swr = Vectorize(swr)
+        
+        percentages_by_course$QUES_TEXT = swr(percentages_by_course$QUES_TEXT)
+        
+        # Generate plot
+        course_plot <- percentages_by_course %>% 
+            ggplot(aes(x=course, y = mean_PCT, fill = Answer)) +
+            geom_bar(stat="identity", position="stack")+
+            theme(axis.text.x=element_text(size = 8, angle = -45, hjust = 0, face = "bold"))+
+            scale_fill_viridis_d()+labs(x = "", y = "Percentage") + facet_wrap(~QUES_TEXT)
+        
+        output$course_plot <- renderPlot({
+            course_plot
+        })
+        output$downloadCoursePlot <- downloadHandler(
+            filename = "CoursePlot.png",
+            content = function(file) {
+                ggsave(file,course_plot)
+            }
+        )
+        output$downloadCourseData<- downloadHandler(
+            filename = "percentages_by_course.csv",
+            content = function(file) { 
+                write.table(percentages_by_course, file, sep = ",", row.names = FALSE)
+            }
+        )
+        
         output$downloadAnswers<- downloadHandler(
             filename = "answers.csv",
             content = function(file) { 
