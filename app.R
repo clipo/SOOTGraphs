@@ -6,7 +6,7 @@ library(ggplot2)
 library(viridisLite)
 #library("shiny.collections")
 
-## SOOT Aggregation
+## Harpur College SOOT Aggregation
 
 #The following script was written by Professor Xingye Qiao of the Math Department, 
 #and modified for the Cloud by Professor Nancy Um of Art History and the Harpur 
@@ -19,10 +19,21 @@ library(viridisLite)
 #Do not rename the files. Upload all the .csv files at the same time. 
 
 
-
 ui <- fluidPage(
     # Application title
     title = "SOOT Processing",
+    # Add header and information
+    h1("Harpur SOOT Aggregator"),
+    br(),
+    p("This aggregator allows you to upload your raw SOOT (Student Opinion of Teaching) 
+      data to generate results in the form of aggregated graphs and spreadsheets, in 
+      addition to a course inventory. In order to use it, you must first navigate to 
+      the `SOOT surveys` page in `MyBinghamton`, which can be found under the `Academic Success` 
+      tab. Select the `Download CSV` function for each course. Do not rename the files. 
+      Upload all of the files and and then click `Process uploaded data`. This script was 
+      written by Professor Xingye Qiao of the Department of
+      Mathematics and then modified by Professors Carl Lipo and Nancy Um of the Harpur
+      College Dean's Office for online use."),
     fluidRow(
         column(width = 4,
                fileInput("csvs",
@@ -33,22 +44,29 @@ ui <- fluidPage(
                actionButton("process", "Process uploaded data")
         )
     ),
+    h2("Overall Results Aggregated by Question"),
     fluidRow(
         # Main panel for displaying outputs ----
-            plotOutput("overall_plot")
-        ),
+        plotOutput("overall_plot")
+    ),
     fluidRow(
         # Button
         downloadButton("downloadOverallPlot", "Download Overall Plot"),
         downloadButton("downloadOverallData", "Download Overall Data as CSV")
     ),
+    h2("Results Aggregated by Question and Term"),
     fluidRow(
         # Main panel for displaying outputs ----
-               plotOutput("term_plot")
+        plotOutput("term_plot")
     ),
     fluidRow(
         downloadButton("downloadTermPlot", "Download Aggregated Term Plot"),
         downloadButton("downloadTermData", "Download Aggregated Term Data as CSV")
+    ),
+    h2("Course Inventory"),
+    p("Generate a course inventory, which includes the number of responses for each course."),
+    fluidRow(
+        downloadButton("downloadInventory", "Download Course Inventory as CSV")
     ),
     fluidRow(
         downloadButton("downloadAnswers", "Download Answers as CSV")
@@ -63,9 +81,7 @@ server <- function(input, output) {
         csv = list()
         for (i in 1 : nfiles)
         {
-            
             csv[[i]] = read.csv(input$csvs$datapath[i])
-            
         }
         files <- input$csvs$datapath
         terms=list()
@@ -133,7 +149,7 @@ server <- function(input, output) {
         output$downloadOverallData<- downloadHandler(
             filename = "percentages_overall.csv",
             content = function(file) { 
-                write.table(percentages_overall, file, sep = ",", row.names = TRUE)
+                write.table(percentages_overall, file, sep = ",", row.names = FALSE)
             }
         )
         
@@ -158,6 +174,7 @@ server <- function(input, output) {
             geom_bar(stat="identity", position="stack")+
             theme(axis.text.x=element_text(size = 8, angle = -45, hjust = 0, face = "bold"))+
             scale_fill_viridis_d()+labs(x = "", y = "Percentage") + facet_wrap(~QUES_TEXT)
+        
         output$term_plot <- renderPlot({
             term_plot
         })
@@ -170,18 +187,28 @@ server <- function(input, output) {
         output$downloadTermData<- downloadHandler(
             filename = "percentages_by_term.csv",
             content = function(file) { 
-                write.table(percentages_by_term, file, sep = ",", row.names = TRUE)
+                write.table(percentages_by_term, file, sep = ",", row.names = FALSE)
                 }
             )
         output$downloadAnswers<- downloadHandler(
             filename = "answers.csv",
             content = function(file) { 
-                write.table(instructor_related_ques, file, sep = "\t", row.names = TRUE)
+                write.table(instructor_related_ques, file, sep = ",", row.names = FALSE)
+            }
+        )
+        #Create a course inventory
+        responses_by_course = ques_count %>% 
+            group_by(term, course) %>%  
+            summarise(response = max(ques_count))
+        
+        output$downloadInventory<- downloadHandler(
+            filename = "course_inventory.csv",
+            content = function(file) { 
+                write.table(responses_by_course, file, sep = ",", row.names = FALSE)
             }
         )
     })
 }        
-
 
 
 shinyApp(ui, server)
