@@ -49,6 +49,9 @@ ui <- fluidPage(
     fluidRow(
         downloadButton("downloadTermPlot", "Download Aggregated Term Plot"),
         downloadButton("downloadTermData", "Download Aggregated Term Data as CSV")
+    ),
+    fluidRow(
+        downloadButton("downloadAnswers", "Download Answers as CSV")
     )
 )
 
@@ -171,6 +174,12 @@ server <- function(input, output) {
                 write.table(percentages_by_term, file, sep = "\t", row.names = TRUE)
                 }
             )
+        output$downloadAnswers<- downloadHandler(
+            filename = "answers.csv",
+            content = function(file) { 
+                write.table(instructor_related_ques, file, sep = "\t", row.names = TRUE)
+            }
+        )
     })
 }        
 
