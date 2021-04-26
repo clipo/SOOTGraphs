@@ -21,9 +21,9 @@ library(viridisLite)
 
 ui <- fluidPage(
     # Application title
-    title = "SOOT Processing",
+    title = "Harpur College SOOT Processing",
     # Add header and information
-    h1("Harpur SOOT Aggregator"),
+    h1("Harpur College SOOT Aggregator"),
     br(),
     p("This aggregator allows you to upload your raw SOOT (Student Opinion of Teaching) 
       data to generate results in the form of aggregated graphs and spreadsheets, in 
