@@ -34,11 +34,12 @@ ui <- fluidPage(
       Mathematics and then modified by Professors Carl Lipo and Nancy Um of the Harpur
       College Dean's Office for online use."),
     p(),
-    HTML("To download SOOT data, go to this link: <a href='https://my.binghamton.edu/page/ACADEMIC_SERVICES/sootsurveys'>https://my.binghamton.edu/page/ACADEMIC_SERVICES/sootsurveys</a>. Download each of the files shown under RESULTS by clicking on the Download CSV button. 
-     Select the `Download CSV` 
-    function for each course. Do not rename the files."), 
+    HTML("To download SOOT data, go to this link: <a href='https://my.binghamton.edu/page/ACADEMIC_SERVICES/sootsurveys'>https://my.binghamton.edu/page/ACADEMIC_SERVICES/sootsurveys</a>. 
+    Download each of the files shown under RESULTS by clicking on 
+    the `Download CSV` button for each course. Do not rename the files."), 
     p(),
-    p("Once complete, upload all of the files through the interface below. Finally, click `Process uploaded data` below"),
+    p("Once you've download the file, upload all of these CSV files through the interface below. Note that these files are not stored or kept on the server. No one will have access to them.
+      Finally, click `Process uploaded data` below."),
     p(),
     fluidRow(
         column(width = 4,
