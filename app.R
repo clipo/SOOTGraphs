@@ -27,16 +27,14 @@ ui <- fluidPage(
     br(),
     p("This aggregator allows you to upload your raw SOOT (Student Opinion of Teaching) 
       data to generate results in the form of aggregated graphs and spreadsheets, in 
-      addition to a course inventory. In order to use it, you must first download your SOOT data. Go to this link: 
-    <a href='https://my.binghamton.edu/page/ACADEMIC_SERVICES/sootsurveys'>https://my.binghamton.edu/page/ACADEMIC_SERVICES/sootsurveys</a>. 
-    Download each of the files shown under RESULTS by clicking on 
+      addition to a course inventory. In order to use it, you must first download your SOOT data. Go to this link: "),
+    HTML("<a href='https://my.binghamton.edu/page/ACADEMIC_SERVICES/sootsurveys'>https://my.binghamton.edu/page/ACADEMIC_SERVICES/sootsurveys</a>."), 
+    p("Download each of the files shown under RESULTS by clicking on 
     the `Download CSV` button for each course. Do not rename the files."), 
     p("Once you have downloaded the files, upload all of the CSV files through the interface below. Note that these files are not stored or kept on the server. 
     No one will have access to them. Finally, click `Process uploaded data` below."), 
     p("This script was written by Professor Xingye Qiao of the Department of Mathematics and then modified by Professors Carl Lipo and Nancy Um of the Harpur
       College Dean's Office for online use."),
-    p(),
-    HTML("To 
     p(),
     fluidRow(
         column(width = 4,
