@@ -187,9 +187,10 @@ server <- function(input, output) {
         output$downloadTermPlot <- downloadHandler(
             filename = "TermPlot.png",
             content = function(file) {
-                ggsave(file,termplot)
+                ggsave(file,term_plot)
             }
         )
+        
         output$downloadTermData<- downloadHandler(
             filename = "percentages_by_term.csv",
             content = function(file) { 
