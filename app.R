@@ -39,14 +39,16 @@ ui <- fluidPage(
         ),
     fluidRow(
         # Button
-        downloadButton("downloadOverallPlot", "Download Overall Plot")
+        downloadButton("downloadOverallPlot", "Download Overall Plot"),
+        downloadButton("downloadOverallData", "Download Overall Data as CSV")
     ),
     fluidRow(
         # Main panel for displaying outputs ----
                plotOutput("term_plot")
     ),
     fluidRow(
-        downloadButton("downloadTermPlot", "Download Aggregated Term Plot")
+        downloadButton("downloadTermPlot", "Download Aggregated Term Plot"),
+        downloadButton("downloadTermData", "Download Aggregated Term Data as CSV")
     )
 )
 
@@ -124,6 +126,13 @@ server <- function(input, output) {
                 ggsave(file,overall_plot)
             }
         )
+
+        output$downloadOverallData<- downloadHandler(
+            filename = "percentages_overall.csv",
+            content = function(file) { 
+                write.table(percentages_overall, file, sep = "\t", row.names = TRUE)
+            }
+        )
         
         percentages_by_term = instructor_related_ques %>% 
             left_join(ques_count) %>% 
@@ -156,6 +165,12 @@ server <- function(input, output) {
                 ggsave(file,termplot)
             }
         )
+        output$downloadTermData<- downloadHandler(
+            filename = "percentages_by_term.csv",
+            content = function(file) { 
+                write.table(percentages_by_term, file, sep = "\t", row.names = TRUE)
+                }
+            )
     })
 }        
 
