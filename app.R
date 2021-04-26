@@ -133,7 +133,7 @@ server <- function(input, output) {
         output$downloadOverallData<- downloadHandler(
             filename = "percentages_overall.csv",
             content = function(file) { 
-                write.table(percentages_overall, file, sep = "\t", row.names = TRUE)
+                write.table(percentages_overall, file, sep = ",", row.names = TRUE)
             }
         )
         
@@ -158,7 +158,6 @@ server <- function(input, output) {
             geom_bar(stat="identity", position="stack")+
             theme(axis.text.x=element_text(size = 8, angle = -45, hjust = 0, face = "bold"))+
             scale_fill_viridis_d()+labs(x = "", y = "Percentage") + facet_wrap(~QUES_TEXT)
-        
         output$term_plot <- renderPlot({
             term_plot
         })
@@ -171,7 +170,7 @@ server <- function(input, output) {
         output$downloadTermData<- downloadHandler(
             filename = "percentages_by_term.csv",
             content = function(file) { 
-                write.table(percentages_by_term, file, sep = "\t", row.names = TRUE)
+                write.table(percentages_by_term, file, sep = ",", row.names = TRUE)
                 }
             )
         output$downloadAnswers<- downloadHandler(
