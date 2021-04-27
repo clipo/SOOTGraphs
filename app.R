@@ -223,8 +223,9 @@ server <- function(input, output) {
         course_plot <- percentages_by_course %>% 
             ggplot(aes(x=course, y = mean_PCT, fill = Answer)) +
             geom_bar(stat="identity", position="stack")+
-            theme(axis.text.x=element_text(size = 8, angle = -45, hjust = 0, face = "bold"))+
-            scale_fill_viridis_d()+labs(x = "", y = "Percentage") + facet_wrap(~QUES_TEXT)
+            theme(axis.text.x=element_text(size = rel(.5), angle = -45, hjust = 0, face = "bold"))+
+            scale_fill_viridis_d()+labs(x = "", y = "Percentage") + facet_wrap(~QUES_TEXT) #+
+           #scale_x_discrete(guide = guide_axis(n.dodge = 2))
         
         output$course_plot <- renderPlot({
             course_plot
