@@ -204,6 +204,7 @@ server <- function(input, output) {
                 }
             )
         
+        
         percentages_by_course = instructor_related_ques %>% 
             left_join(ques_count) %>% 
             group_by(QUES_TEXT, ANS_TEXT, course) %>% 
@@ -223,7 +224,7 @@ server <- function(input, output) {
         course_plot <- percentages_by_course %>% 
             ggplot(aes(x=course, y = mean_PCT, fill = Answer)) +
             geom_bar(stat="identity", position="stack")+
-            theme(axis.text.x=element_text(size = rel(.5), angle = -45, hjust = 0, face = "bold"))+
+            theme(axis.text.x=element_text(size = rel(.7), angle = -45, hjust = 0, face = "bold"))+
             scale_fill_viridis_d()+labs(x = "", y = "Percentage") + facet_wrap(~QUES_TEXT) #+
            #scale_x_discrete(guide = guide_axis(n.dodge = 2))
         
