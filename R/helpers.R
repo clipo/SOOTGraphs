@@ -6,10 +6,15 @@ library(tidyr)
 library(stringr)
 library(tibble)
 library(ggplot2)
+library(readxl)
 
 ANS_LEVELS <- c("Not Applicable", "Very Low or Never", "Low",
                 "Average", "High", "Very High or Always")
 TOP_BOX_LEVELS <- c("High", "Very High or Always")
+
+CODE_TO_ANS <- c(`0` = "Not Applicable", `1` = "Very Low or Never",
+                 `2` = "Low", `3` = "Average", `4` = "High",
+                 `5` = "Very High or Always")
 
 INSTRUCTOR_QUESTIONS <- c(
   "The instructor is well prepared for class.",
@@ -64,13 +69,69 @@ read_soot_csv <- function(path, name) {
            enrollment, respondents, response_rate, instructor)
 }
 
+# Take the question text after the final " - " separator (the instructor-item
+# pattern); return the trimmed string unchanged if there is no such separator.
+strip_question_prefix <- function(x) {
+  trimws(sub("^.* - ", "", x))
+}
+
+# Read one per-respondent XLSX export into the canonical long format.
+# Only the 9 instructor questions are normalized (other questions use different
+# answer scales). Blank/no-response cells are dropped; code 0 is "Not Applicable".
+read_soot_xlsx <- function(path, name) {
+  raw <- tryCatch(readxl::read_excel(path, sheet = "RawData"),
+                  error = function(e) NULL)
+  mapper <- tryCatch(readxl::read_excel(path, sheet = "QuestionMapper"),
+                     error = function(e) NULL)
+  if (is.null(raw) || is.null(mapper) || nrow(raw) == 0) {
+    warning(sprintf("Skipping empty or unreadable XLSX: %s", name))
+    return(NULL)
+  }
+  qmap <- tibble::tibble(col = mapper[[1]],
+                         QUES_TEXT = strip_question_prefix(mapper[[2]])) |>
+    filter(QUES_TEXT %in% INSTRUCTOR_QUESTIONS, col %in% names(raw))
+  if (nrow(qmap) == 0) {
+    warning(sprintf("No instructor questions found in XLSX: %s", name))
+    return(NULL)
+  }
+  ct <- parse_course_term(name)
+  meta_first <- function(col) if (col %in% names(raw)) raw[[col]][1] else NA
+
+  long <- raw |>
+    mutate(.rid = row_number()) |>
+    select(.rid, all_of(qmap$col)) |>
+    pivot_longer(-.rid, names_to = "col", values_to = "code") |>
+    mutate(code = trimws(as.character(code))) |>
+    filter(!is.na(code), code %in% names(CODE_TO_ANS)) |>
+    left_join(qmap, by = "col") |>
+    mutate(ANS_TEXT = unname(CODE_TO_ANS[code]))
+
+  agg <- long |>
+    group_by(QUES_TEXT, ANS_TEXT) |>
+    summarise(ANS_COUNT = n(), .groups = "drop") |>
+    group_by(QUES_TEXT) |>
+    mutate(ANS_PCT = 100 * ANS_COUNT / sum(ANS_COUNT)) |>
+    ungroup()
+
+  agg |>
+    mutate(course = ct$course,
+           term = ct$term,
+           ANS_TEXT = factor(ANS_TEXT, levels = ANS_LEVELS, ordered = TRUE),
+           enrollment = as.numeric(meta_first("Enrollments")),
+           respondents = as.numeric(meta_first("Respondents")),
+           response_rate = as.numeric(meta_first("ResponseRate")),
+           instructor = as.character(meta_first("InstructorName"))) |>
+    select(course, term, QUES_TEXT, ANS_TEXT, ANS_COUNT, ANS_PCT,
+           enrollment, respondents, response_rate, instructor)
+}
+
 # Dispatch on file extension. XLSX support arrives in Phase B.
 read_soot_file <- function(path, name) {
   ext <- tolower(tools::file_ext(name))
   if (ext == "csv") {
     read_soot_csv(path, name)
   } else if (ext %in% c("xlsx", "xls")) {
-    stop("XLSX import not yet supported. Please upload the old-format CSV files for now.")
+    read_soot_xlsx(path, name)
   } else {
     warning(sprintf("Skipping file with unrecognized extension: %s", name))
     NULL

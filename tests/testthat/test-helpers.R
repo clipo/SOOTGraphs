@@ -55,9 +55,40 @@ test_that("read_soot_file returns NULL for an empty file", {
   expect_null(res)
 })
 
-test_that("read_soot_file rejects XLSX in Phase A", {
-  expect_error(read_soot_file("whatever.xlsx", "ANTH243-01_FALL25.xlsx"),
-               "not yet supported")
+test_that("read_soot_file reads an XLSX into the canonical schema, instructor questions only", {
+  res <- read_soot_file(fixture("TEST101-01_FALL25.xlsx"), "TEST101-01_FALL25.xlsx")
+  expect_true(all(c("course","term","QUES_TEXT","ANS_TEXT","ANS_COUNT","ANS_PCT",
+                    "enrollment","respondents","response_rate","instructor")
+                  %in% names(res)))
+  expect_equal(unique(res$course), "TEST101")
+  expect_equal(unique(res$term), "FALL25")
+  expect_true(is.ordered(res$ANS_TEXT))
+  expect_setequal(unique(res$QUES_TEXT),
+                  c("The instructor is well prepared for class.",
+                    "Overall, the instructor is an effective teacher."))
+  q1 <- res[res$QUES_TEXT == "The instructor is well prepared for class.", ]
+  expect_equal(q1$ANS_COUNT[q1$ANS_TEXT == "High"], 2)
+  expect_equal(q1$ANS_COUNT[q1$ANS_TEXT == "Very High or Always"], 1)
+  expect_equal(unique(res$response_rate), 20)
+  expect_equal(unique(res$respondents), 4)
+  expect_equal(unique(res$enrollment), 20)
+  expect_equal(unique(res$instructor), "Test Instructor")
+})
+
+test_that("top-two-box from the XLSX fixture is correct", {
+  res <- read_soot_file(fixture("TEST101-01_FALL25.xlsx"), "TEST101-01_FALL25.xlsx")
+  ttb <- compute_top_two_box(res, "QUES_TEXT", "student")
+  q1 <- ttb[ttb$QUES_TEXT == "The instructor is well prepared for class.", ]
+  q2 <- ttb[ttb$QUES_TEXT == "Overall, the instructor is an effective teacher.", ]
+  expect_equal(q1$top_two_box, 100)
+  expect_equal(round(q2$top_two_box, 2), 33.33)
+})
+
+test_that("strip_question_prefix keeps text after the final ' - '", {
+  expect_equal(strip_question_prefix(
+    "[InstructorName]-Instructor Effectiveness and Teaching Practices - The instructor is well prepared for class."),
+    "The instructor is well prepared for class.")
+  expect_equal(strip_question_prefix("Year in School."), "Year in School.")
 })
 
 make_canonical <- function() {
