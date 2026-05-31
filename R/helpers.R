@@ -265,3 +265,32 @@ plot_response_counts <- function(data) {
          title = "Response Counts by Course") +
     theme(axis.text.x = element_text(angle = -45, hjust = 0, size = 8))
 }
+
+# Mean response rate per course/term, dropping rows without a rate (CSV-sourced).
+response_rate_by_course <- function(data) {
+  data |>
+    filter(!is.na(response_rate)) |>
+    distinct(course, term, response_rate) |>
+    group_by(course, term) |>
+    summarise(response_rate = mean(response_rate), .groups = "drop")
+}
+
+# Bar of response rate per course (grouped by term). Renders a placeholder when
+# no rate is available (e.g. only old-format CSV files were uploaded).
+plot_response_rate <- function(data) {
+  rr <- response_rate_by_course(data)
+  if (nrow(rr) == 0) {
+    return(ggplot() +
+             annotate("text", x = 1, y = 1,
+                      label = "Response rate not available\n(requires XLSX-format uploads)") +
+             theme_void())
+  }
+  rr <- rr |> mutate(term = order_terms(term))
+  ggplot(rr, aes(x = course, y = response_rate, fill = term)) +
+    geom_col(position = position_dodge(preserve = "single")) +
+    scale_fill_viridis_d() +
+    scale_y_continuous(limits = c(0, 100)) +
+    labs(x = "", y = "Response rate (%)", fill = "Term",
+         title = "Response Rate by Course") +
+    theme(axis.text.x = element_text(angle = -45, hjust = 0, size = 8))
+}

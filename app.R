@@ -121,6 +121,14 @@ ui <- fluidPage(
         downloadButton("downloadHeatmapPlot", "Download Heatmap"),
         downloadButton("downloadHeatmapData", "Download Heatmap Data")
     ),
+    h2("Response Rate by Course"),
+    p("Percentage of enrolled students who responded, available for XLSX-format
+      uploads (the older CSV export does not include enrollment)."),
+    fluidRow(plotOutput("response_rate_plot")),
+    fluidRow(
+        downloadButton("downloadResponseRatePlot", "Download Response Rate Plot"),
+        downloadButton("downloadResponseRateData", "Download Response Rate Data")
+    ),
     h2("Course Inventory"),
     p("Generate a course inventory, which includes the number of responses for each course. 
          You may also want to add a column for the overall enrollment, in order to show the overall response rate for each course."),
@@ -365,6 +373,17 @@ server <- function(input, output) {
         output$downloadHeatmapData <- downloadHandler(
             filename = "question_by_course.csv",
             content = function(file) { write.table(heatmap_data, file, sep = ",", row.names = FALSE) })
+
+        response_rate_plot <- plot_response_rate(instructor_related_ques)
+        response_rate_data <- response_rate_by_course(instructor_related_ques)
+
+        output$response_rate_plot <- renderPlot({ response_rate_plot })
+        output$downloadResponseRatePlot <- downloadHandler(
+            filename = "ResponseRateByCourse.png",
+            content = function(file) { ggsave(file, response_rate_plot, width = 7, height = 5, dpi = 300) })
+        output$downloadResponseRateData <- downloadHandler(
+            filename = "response_rate_by_course.csv",
+            content = function(file) { write.table(response_rate_data, file, sep = ",", row.names = FALSE) })
 
         #Create a course inventory
         responses_by_course = ques_count %>% 

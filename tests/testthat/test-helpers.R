@@ -164,3 +164,13 @@ test_that("the real sample XLSX reads without error (skipped if sample absent)",
   expect_true(all(res$QUES_TEXT %in% INSTRUCTOR_QUESTIONS))
   expect_true(is.numeric(res$response_rate))
 })
+
+test_that("response_rate_by_course summarizes available rates and ignores NA-only", {
+  d <- tibble::tibble(
+    course = c("A","A","B","C"), term = c("FALL24","FALL24","FALL24","FALL24"),
+    response_rate = c(80, 80, 40, NA_real_)
+  )
+  rr <- response_rate_by_course(d)
+  expect_equal(sort(rr$course), c("A","B"))
+  expect_equal(rr$response_rate[rr$course == "A"], 80)
+})
