@@ -87,31 +87,29 @@ ui <- fluidPage(
 
 server <- function(input, output) {
     observeEvent(input$process, {
-        
-        info<-tibble(course = character(), term = character())
-        nfiles = nrow(input$csvs) 
-        csv = list()
-        for (i in 1 : nfiles)
-        {
-            csv[[i]] = read.csv(input$csvs$datapath[i])
+
+        # Guard against the process button being clicked with no files uploaded
+        if (is.null(input$csvs) || nrow(input$csvs) == 0) {
+            showNotification("Please upload at least one SOOT CSV file before processing.",
+                             type = "warning")
+            return()
         }
+
         files <- input$csvs$datapath
-        terms=list()
-        courses=list()
-        for(i in 1:length(files)){
-            file_info <-  str_split(input$csvs$name[i], "-|_|\\.")
-            terms[i]<-unlist(file_info)[3]
-            courses[i]<-unlist(file_info)[1]
+        terms = list()
+        courses = list()
+        for (i in seq_along(files)) {
+            file_info <- str_split(input$csvs$name[i], "-|_|\\.")
+            terms[i]  <- unlist(file_info)[3]
+            courses[i] <- unlist(file_info)[1]
         }
 
-        # Generate data frame
+        # Generate data frame by reading each uploaded CSV once and tagging it
+        # with the course and term parsed from its filename
         full = NULL
-        
-        for(i in 1:length(files)){
-
-            full = rbind(full, as_tibble(read.csv(files[i],header=T)) 
+        for (i in seq_along(files)) {
+            full = rbind(full, as_tibble(read.csv(files[i], header = T))
                          %>% mutate(course = unlist(courses[i]), term = unlist(terms[i])))
-            #full <- full %>% add_column(course = unlist(courses[i]), term = unlist(terms[i]))
         }
 
         # Aggregate the info by question
@@ -182,12 +180,16 @@ server <- function(input, output) {
         swr = Vectorize(swr)
         
         percentages_by_term$QUES_TEXT = swr(percentages_by_term$QUES_TEXT)
+        num_term = length(unique(instructor_related_ques$term))
+        font_size<-.9
+        if(num_term>10){ font_size<-.7 }
+        if(num_term>20){ font_size<-.5 }
         
         # Generate plot
         term_plot <- percentages_by_term %>% 
             ggplot(aes(x=term, y = mean_PCT, fill = Answer)) +
             geom_bar(stat="identity", position="stack")+
-            theme(axis.text.x=element_text(size = 8, angle = -45, hjust = 0, face = "bold"))+
+            theme(axis.text.x=element_text(size = rel(font_size), angle = -45, hjust = 0, face = "bold"))+
             scale_fill_viridis_d()+labs(x = "", y = "Percentage") + facet_wrap(~QUES_TEXT)
         
         term_plot <- term_plot + labs(title = "Results Aggregated by Term",
@@ -210,7 +212,10 @@ server <- function(input, output) {
                 }
             )
         
-        
+        num_courses = length(unique(instructor_related_ques$course))
+        font_size<-.9
+        if(num_courses>10){ font_size<-.7 }
+        if(num_courses>20){ font_size<-.5 }
         percentages_by_course = instructor_related_ques %>% 
             left_join(ques_count) %>% 
             group_by(QUES_TEXT, ANS_TEXT, course) %>% 
@@ -230,7 +235,7 @@ server <- function(input, output) {
         course_plot <- percentages_by_course %>% 
             ggplot(aes(x=course, y = mean_PCT, fill = Answer)) +
             geom_bar(stat="identity", position="stack")+
-            theme(axis.text.x=element_text(size = rel(.7), angle = -45, hjust = 0, face = "bold"))+
+            theme(axis.text.x=element_text(size = rel(font_size), angle = -45, hjust = 0, face = "bold"))+
             scale_fill_viridis_d()+labs(x = "", y = "Percentage") + facet_wrap(~QUES_TEXT) #+
            #scale_x_discrete(guide = guide_axis(n.dodge = 2))
         

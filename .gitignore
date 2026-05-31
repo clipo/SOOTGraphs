@@ -1,0 +1,5 @@
+.DS_Store
+*.tar
+sample-data/
+.Rproj.user/
+.Rhistory
