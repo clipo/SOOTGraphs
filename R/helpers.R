@@ -4,6 +4,7 @@
 library(dplyr)
 library(tidyr)
 library(stringr)
+library(tibble)
 
 ANS_LEVELS <- c("Not Applicable", "Very Low or Never", "Low",
                 "Average", "High", "Very High or Always")
@@ -39,4 +40,38 @@ order_terms <- function(term_vector) {
   key <- year * 100 + as.integer(rank)
   ordered_levels <- uniq[order(key)]
   factor(term_vector, levels = ordered_levels, ordered = TRUE)
+}
+
+# Read one uploaded SOOT CSV into the canonical long format.
+read_soot_csv <- function(path, name) {
+  raw <- tryCatch(read.csv(path, header = TRUE, stringsAsFactors = FALSE),
+                  error = function(e) NULL)
+  if (is.null(raw) || nrow(raw) == 0) {
+    warning(sprintf("Skipping empty or unreadable file: %s", name))
+    return(NULL)
+  }
+  ct <- parse_course_term(name)
+  tibble::as_tibble(raw) |>
+    mutate(course = ct$course,
+           term = ct$term,
+           ANS_TEXT = factor(ANS_TEXT, levels = ANS_LEVELS, ordered = TRUE),
+           enrollment = NA_real_,
+           respondents = NA_real_,
+           response_rate = NA_real_,
+           instructor = NA_character_) |>
+    select(course, term, QUES_TEXT, ANS_TEXT, ANS_COUNT, ANS_PCT,
+           enrollment, respondents, response_rate, instructor)
+}
+
+# Dispatch on file extension. XLSX support arrives in Phase B.
+read_soot_file <- function(path, name) {
+  ext <- tolower(tools::file_ext(name))
+  if (ext == "csv") {
+    read_soot_csv(path, name)
+  } else if (ext %in% c("xlsx", "xls")) {
+    stop("XLSX import not yet supported. Please upload the old-format CSV files for now.")
+  } else {
+    warning(sprintf("Skipping file with unrecognized extension: %s", name))
+    NULL
+  }
 }

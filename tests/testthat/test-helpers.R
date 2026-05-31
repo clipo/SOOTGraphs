@@ -31,3 +31,31 @@ test_that("order_terms handles a single term", {
   res <- order_terms("FALL20")
   expect_equal(levels(res), "FALL20")
 })
+
+fixture <- function(name) file.path("fixtures", name)
+
+test_that("read_soot_file reads a CSV into the canonical schema", {
+  res <- read_soot_file(fixture("ANTH243-01_FALL24.csv"), "ANTH243-01_FALL24.csv")
+  expect_true(all(c("course","term","QUES_TEXT","ANS_TEXT","ANS_COUNT","ANS_PCT",
+                    "enrollment","respondents","response_rate","instructor")
+                  %in% names(res)))
+  expect_equal(unique(res$course), "ANTH243")
+  expect_equal(unique(res$term), "FALL24")
+  expect_true(is.ordered(res$ANS_TEXT))
+  expect_true(all(is.na(res$enrollment)))
+  row <- res[res$QUES_TEXT == "The instructor is well prepared for class." &
+             res$ANS_TEXT == "Very High or Always", ]
+  expect_equal(row$ANS_COUNT, 18)
+})
+
+test_that("read_soot_file returns NULL for an empty file", {
+  empty <- tempfile(fileext = ".csv")
+  file.create(empty)
+  expect_warning(res <- read_soot_file(empty, "EMPTY-01_FALL20.csv"))
+  expect_null(res)
+})
+
+test_that("read_soot_file rejects XLSX in Phase A", {
+  expect_error(read_soot_file("whatever.xlsx", "ANTH243-01_FALL25.xlsx"),
+               "not yet supported")
+})
