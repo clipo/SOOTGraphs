@@ -14,3 +14,20 @@ test_that("parse_course_term splits course and term from filename", {
   expect_equal(parse_course_term("ANTH243-90_SPG21.csv"),
                list(course = "ANTH243", term = "SPG21"))
 })
+
+test_that("order_terms returns a chronological ordered factor", {
+  res <- order_terms(c("FALL24", "SPG25", "FALL19", "SPG16"))
+  expect_s3_class(res, "factor")
+  expect_true(is.ordered(res))
+  expect_equal(levels(res), c("SPG16", "FALL19", "FALL24", "SPG25"))
+})
+
+test_that("order_terms keeps spring before fall within a year", {
+  res <- order_terms(c("FALL21", "SPG21"))
+  expect_equal(levels(res), c("SPG21", "FALL21"))
+})
+
+test_that("order_terms handles a single term", {
+  res <- order_terms("FALL20")
+  expect_equal(levels(res), "FALL20")
+})
