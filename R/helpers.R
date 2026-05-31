@@ -125,7 +125,7 @@ read_soot_xlsx <- function(path, name) {
            enrollment, respondents, response_rate, instructor)
 }
 
-# Dispatch on file extension. XLSX support arrives in Phase B.
+# Dispatch on file extension: old aggregate CSV or new per-respondent XLSX.
 read_soot_file <- function(path, name) {
   ext <- tolower(tools::file_ext(name))
   if (ext == "csv") {
