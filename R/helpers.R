@@ -20,3 +20,10 @@ INSTRUCTOR_QUESTIONS <- c(
   "The instructor encourages me to think analytically.",
   "Overall, the instructor is an effective teacher."
 )
+
+# Split an uploaded filename into course and term tokens.
+# Pattern: COURSE-SECTION_TERM.ext, split on "-", "_", or ".".
+parse_course_term <- function(filename) {
+  parts <- unlist(str_split(filename, "-|_|\\."))
+  list(course = parts[1], term = parts[3])
+}
