@@ -1,0 +1,107 @@
+QUES,QUES_TEXT,ANS_TEXT,ANS_COUNT,ANS_PCT
+1,"The instructor is well prepared for class.","Not Applicable",0,0
+1,"The instructor is well prepared for class.","Very Low or Never",0,0
+1,"The instructor is well prepared for class.","Low",0,0
+1,"The instructor is well prepared for class.","Average",3,8
+1,"The instructor is well prepared for class.","High",17,45
+1,"The instructor is well prepared for class.","Very High or Always",18,47
+2,"The instructor demonstrates a thorough knowledge of the subject.","Not Applicable",0,0
+2,"The instructor demonstrates a thorough knowledge of the subject.","Very Low or Never",0,0
+2,"The instructor demonstrates a thorough knowledge of the subject.","Low",0,0
+2,"The instructor demonstrates a thorough knowledge of the subject.","Average",1,3
+2,"The instructor demonstrates a thorough knowledge of the subject.","High",16,42
+2,"The instructor demonstrates a thorough knowledge of the subject.","Very High or Always",21,55.00000000000001
+3,"The instructor communicates his/her subject well.","Not Applicable",0,0
+3,"The instructor communicates his/her subject well.","Very Low or Never",0,0
+3,"The instructor communicates his/her subject well.","Low",2,5
+3,"The instructor communicates his/her subject well.","Average",6,16
+3,"The instructor communicates his/her subject well.","High",12,32
+3,"The instructor communicates his/her subject well.","Very High or Always",18,47
+4,"The instructor explains complex ideas clearly.","Not Applicable",0,0
+4,"The instructor explains complex ideas clearly.","Very Low or Never",0,0
+4,"The instructor explains complex ideas clearly.","Low",2,5
+4,"The instructor explains complex ideas clearly.","Average",4,11
+4,"The instructor explains complex ideas clearly.","High",17,45
+4,"The instructor explains complex ideas clearly.","Very High or Always",15,39
+5,"The instructor stimulates my interest in the core subject.","Not Applicable",0,0
+5,"The instructor stimulates my interest in the core subject.","Very Low or Never",0,0
+5,"The instructor stimulates my interest in the core subject.","Low",4,11
+5,"The instructor stimulates my interest in the core subject.","Average",10,26
+5,"The instructor stimulates my interest in the core subject.","High",10,26
+5,"The instructor stimulates my interest in the core subject.","Very High or Always",14,37
+6,"The instructor is receptive to questions.","Not Applicable",0,0
+6,"The instructor is receptive to questions.","Very Low or Never",0,0
+6,"The instructor is receptive to questions.","Low",0,0
+6,"The instructor is receptive to questions.","Average",3,8
+6,"The instructor is receptive to questions.","High",11,28.999999999999996
+6,"The instructor is receptive to questions.","Very High or Always",24,63
+7,"The instructor is available to help me outside of class.","Not Applicable",0,0
+7,"The instructor is available to help me outside of class.","Very Low or Never",0,0
+7,"The instructor is available to help me outside of class.","Low",0,0
+7,"The instructor is available to help me outside of class.","Average",7,18
+7,"The instructor is available to help me outside of class.","High",13,34
+7,"The instructor is available to help me outside of class.","Very High or Always",18,47
+8,"The instructor encourages me to think analytically.","Not Applicable",0,0
+8,"The instructor encourages me to think analytically.","Very Low or Never",0,0
+8,"The instructor encourages me to think analytically.","Low",2,5
+8,"The instructor encourages me to think analytically.","Average",9,24
+8,"The instructor encourages me to think analytically.","High",10,26
+8,"The instructor encourages me to think analytically.","Very High or Always",17,45
+9,"Overall, the instructor is an effective teacher.","Not Applicable",0,0
+9,"Overall, the instructor is an effective teacher.","Very Low or Never",0,0
+9,"Overall, the instructor is an effective teacher.","Low",0,0
+9,"Overall, the instructor is an effective teacher.","Average",9,24
+9,"Overall, the instructor is an effective teacher.","High",13,34
+9,"Overall, the instructor is an effective teacher.","Very High or Always",16,42
+10,"My interest in subject before course","Low",9,24
+10,"My interest in subject before course","Medium",22,57.99999999999999
+10,"My interest in subject before course","High",7,18
+11,"My interest in subject after course","Low",4,11
+11,"My interest in subject after course","Medium",15,39
+11,"My interest in subject after course","High",19,50
+12,"Difficulty (relative to other courses)","Low",19,50
+12,"Difficulty (relative to other courses)","Medium",19,50
+12,"Difficulty (relative to other courses)","High",0,0
+13,"Workload (relative to other courses)","Low",16,42
+13,"Workload (relative to other courses)","Medium",20,53
+13,"Workload (relative to other courses)","High",2,5
+14,"Usefulness of texts","Low",11,28.999999999999996
+14,"Usefulness of texts","Medium",18,47
+14,"Usefulness of texts","High",9,24
+15,"Usefulness of homework assignments","Not Applicable",0,0
+15,"Usefulness of homework assignments","Low",5,13
+15,"Usefulness of homework assignments","Medium",20,53
+15,"Usefulness of homework assignments","High",13,34
+16,"Usefulness of lab assignments","Not Applicable",35,92
+16,"Usefulness of lab assignments","Low",0,0
+16,"Usefulness of lab assignments","Medium",1,3
+16,"Usefulness of lab assignments","High",2,5
+17,"Usefulness of examinations","Not Applicable",1,3
+17,"Usefulness of examinations","Low",1,3
+17,"Usefulness of examinations","Medium",22,57.99999999999999
+17,"Usefulness of examinations","High",14,37
+18,"Usefulness of class discussions","Not Applicable",10,26
+18,"Usefulness of class discussions","Low",7,18
+18,"Usefulness of class discussions","Medium",9,24
+18,"Usefulness of class discussions","High",12,32
+19,"Year in School","Freshman",2,5
+19,"Year in School","Sophmore",22,57.99999999999999
+19,"Year in School","Junior",9,24
+19,"Year in School","Senior",5,13
+19,"Year in School","Graduate",0,0
+19,"Year in School","Other",0,0
+20,"What requirements does this course fulfill?","Major",18,47
+20,"What requirements does this course fulfill?","Minor",4,11
+20,"What requirements does this course fulfill?","Gen Ed.",14,37
+20,"What requirements does this course fulfill?","None",2,5
+21,"Expected Grade","A",28,74
+21,"Expected Grade","B",8,21
+21,"Expected Grade","C",0,0
+21,"Expected Grade","D",0,0
+21,"Expected Grade","F",0,0
+21,"Expected Grade","P",0,0
+21,"Expected Grade","NP",0,0
+21,"Expected Grade","Don't Know",2,5
+22,"In this course, I expect to obtain a grade","Lower than my GPA",3,8
+22,"In this course, I expect to obtain a grade","Commensurate with my GPA",17,45
+22,"In this course, I expect to obtain a grade","Higher than my GPA",18,47

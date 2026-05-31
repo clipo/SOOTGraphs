@@ -4,6 +4,7 @@ library(tidyverse)
 library(purrr)
 library(ggplot2)
 library(viridisLite)
+source("R/helpers.R")
 #library("shiny.collections")
 
 ## Harpur College SOOT Aggregation
@@ -74,6 +75,52 @@ ui <- fluidPage(
         downloadButton("downloadCoursePlot", "Download Aggregated Course Plot"),
         downloadButton("downloadCourseData", "Download Aggregated Course Data as CSV")
     ),
+    h2("Summary Score by Question"),
+    fluidRow(plotOutput("summary_student_plot")),
+    fluidRow(
+        downloadButton("downloadSummaryStudentPlot", "Download Student-Weighted Plot"),
+        downloadButton("downloadSummaryStudentData", "Download Student-Weighted Data")
+    ),
+    fluidRow(plotOutput("summary_course_plot")),
+    fluidRow(
+        downloadButton("downloadSummaryCoursePlot", "Download Course-Weighted Plot"),
+        downloadButton("downloadSummaryCourseData", "Download Course-Weighted Data")
+    ),
+    p("Two summaries of the same ratings are shown. The student-weighted version pools
+      every student response together, so courses with more respondents have more
+      influence; it reflects the experience of the average student. The course-weighted
+      version summarizes each course on its own and then averages those course summaries
+      equally, so every course counts the same regardless of size; it reflects the typical
+      course. The two differ when class sizes vary: a single large course pulls the
+      student-weighted number toward its own ratings, while the course-weighted number
+      gives a small seminar the same say as a large lecture."),
+    h2("Summary Score Trends by Term"),
+    fluidRow(plotOutput("trend_student_plot", height = "600px")),
+    fluidRow(
+        downloadButton("downloadTrendStudentPlot", "Download Student-Weighted Trend"),
+        downloadButton("downloadTrendStudentData", "Download Student-Weighted Trend Data")
+    ),
+    fluidRow(plotOutput("trend_course_plot", height = "600px")),
+    fluidRow(
+        downloadButton("downloadTrendCoursePlot", "Download Course-Weighted Trend"),
+        downloadButton("downloadTrendCourseData", "Download Course-Weighted Trend Data")
+    ),
+    h2("Response Counts by Course"),
+    p("Number of rating respondents per course. Percentages from courses with few
+      respondents are less reliable; use this to judge how much weight to give each bar."),
+    fluidRow(plotOutput("response_count_plot")),
+    fluidRow(
+        downloadButton("downloadResponseCountPlot", "Download Response Count Plot"),
+        downloadButton("downloadResponseCountData", "Download Response Count Data")
+    ),
+    h2("Question-by-Course Comparison"),
+    p("Top-two-box percentage for each question in each course. Use it to see whether a
+      weaker dimension is specific to one course or consistent across courses."),
+    fluidRow(plotOutput("heatmap_plot", height = "500px")),
+    fluidRow(
+        downloadButton("downloadHeatmapPlot", "Download Heatmap"),
+        downloadButton("downloadHeatmapData", "Download Heatmap Data")
+    ),
     h2("Course Inventory"),
     p("Generate a course inventory, which includes the number of responses for each course. 
          You may also want to add a column for the overall enrollment, in order to show the overall response rate for each course."),
@@ -95,47 +142,34 @@ server <- function(input, output) {
             return()
         }
 
-        files <- input$csvs$datapath
-        terms = list()
-        courses = list()
-        for (i in seq_along(files)) {
-            file_info <- str_split(input$csvs$name[i], "-|_|\\.")
-            terms[i]  <- unlist(file_info)[3]
-            courses[i] <- unlist(file_info)[1]
+        # Read every uploaded file through the ingestion layer into the
+        # canonical long format. Empty/unsupported files are skipped (NULL).
+        full <- NULL
+        for (i in seq_along(input$csvs$datapath)) {
+            one <- tryCatch(
+                read_soot_file(input$csvs$datapath[i], input$csvs$name[i]),
+                error = function(e) { showNotification(conditionMessage(e), type = "error"); NULL }
+            )
+            if (!is.null(one)) full <- bind_rows(full, one)
         }
-
-        # Generate data frame by reading each uploaded CSV once and tagging it
-        # with the course and term parsed from its filename
-        full = NULL
-        for (i in seq_along(files)) {
-            full = rbind(full, as_tibble(read.csv(files[i], header = T))
-                         %>% mutate(course = unlist(courses[i]), term = unlist(terms[i])))
+        if (is.null(full) || nrow(full) == 0) {
+            showNotification("No usable data found in the uploaded files.", type = "warning")
+            return()
         }
 
         # Aggregate the info by question
-        instructor_related_ques = full %>% filter(QUES_TEXT %in% c("The instructor is well prepared for class.",
-                                                                   "The instructor demonstrates a thorough knowledge of the subject.",
-                                                                   "The instructor communicates his/her subject well.",
-                                                                   "The instructor explains complex ideas clearly.",
-                                                                   "The instructor stimulates my interest in the core subject.",
-                                                                   "The instructor is receptive to questions.",
-                                                                   "The instructor is available to help me outside of class.",
-                                                                   "The instructor encourages me to think analytically.",
-                                                                   "Overall, the instructor is an effective teacher.")) %>% 
-            mutate(fall.spring = ifelse(nchar(term)==6,substr(term,1,4),substr(term,1,3)),
-                   year = ifelse(nchar(term)==6,substr(term,5,6),substr(term,4,5)),
-                   term_month = ifelse(fall.spring=="FALL", 9, 2)) %>% 
-            unite(term, year, term_month, fall.spring)
+        instructor_related_ques <- full |>
+            filter(QUES_TEXT %in% INSTRUCTOR_QUESTIONS)
         
         ques_count = instructor_related_ques %>% 
             group_by(QUES_TEXT,term,course) %>% 
             summarize(ques_count = sum(ANS_COUNT))
         
-        percentages_overall = instructor_related_ques %>% 
-            left_join(ques_count) %>% 
-            group_by(QUES_TEXT, ANS_TEXT) %>% 
-            summarise(mean_PCT = sum(ANS_PCT*ques_count, na.rm = T)/sum(ques_count)) %>% 
-            mutate(Answer = factor(ANS_TEXT, levels=c("Not Applicable", "Very Low or Never", "Low", "Average", "High", "Very High or Always")), QUES_TEXT = factor(QUES_TEXT,levels = c("The instructor is well prepared for class.", "The instructor demonstrates a thorough knowledge of the subject.", "The instructor communicates his/her subject well.", "The instructor explains complex ideas clearly.", "The instructor stimulates my interest in the core subject.", "The instructor is receptive to questions.", "The instructor is available to help me outside of class.", "The instructor encourages me to think analytically.", "Overall, the instructor is an effective teacher.")))
+        overall_dist <- compute_rating_distribution(instructor_related_ques, "QUES_TEXT")
+        na_overall <- round(mean(overall_dist$na_share$na_pct, na.rm = TRUE), 1)
+        percentages_overall <- overall_dist$dist |>
+            rename(Answer = ANS_TEXT, mean_PCT = pct) |>
+            mutate(QUES_TEXT = factor(QUES_TEXT, levels = INSTRUCTOR_QUESTIONS))
         
         # Generate the plot
         overall_plot <- percentages_overall %>% 
@@ -146,8 +180,11 @@ server <- function(input, output) {
             theme(legend.text = element_text(size=8)) +
             scale_fill_viridis_d()+labs(x = "", y = "Percentage")
         
-        overall_plot <- overall_plot + labs(title = "Overall Results Aggregated by Question",
-              subtitle = "Generated by the Harpur College SOOT Aggregator")
+        overall_plot <- overall_plot + labs(
+            title = "Overall Results Aggregated by Question",
+            subtitle = sprintf(
+                "Generated by the Harpur College SOOT Aggregator. Bars show ratings only; 'Not Applicable' averaged %.1f%% of responses and is excluded.",
+                na_overall))
         
         output$overall_plot <- renderPlot({
             overall_plot
@@ -166,12 +203,10 @@ server <- function(input, output) {
             }
         )
         
-        percentages_by_term = instructor_related_ques %>% 
-            left_join(ques_count) %>% 
-            group_by(QUES_TEXT, ANS_TEXT, term) %>% 
-            summarise(mean_PCT = sum(ANS_PCT*ques_count, na.rm = T)/sum(ques_count)) %>% 
-            mutate(Answer = factor(ANS_TEXT, levels=c("Not Applicable", "Very Low or Never", "Low", "Average", "High", "Very High or Always")), 
-                   QUES_TEXT = factor(QUES_TEXT,levels = c("The instructor is well prepared for class.", "The instructor demonstrates a thorough knowledge of the subject.", "The instructor communicates his/her subject well.", "The instructor explains complex ideas clearly.", "The instructor stimulates my interest in the core subject.", "The instructor is receptive to questions.", "The instructor is available to help me outside of class.", "The instructor encourages me to think analytically.", "Overall, the instructor is an effective teacher.")))
+        term_dist <- compute_rating_distribution(instructor_related_ques, c("QUES_TEXT", "term"))
+        percentages_by_term <- term_dist$dist |>
+            rename(Answer = ANS_TEXT, mean_PCT = pct) |>
+            mutate(term = order_terms(term))
         
         # Create string wrap so that the titles are legible
         swr = function(percentages_by_term, nwrap=20) {
@@ -216,12 +251,9 @@ server <- function(input, output) {
         font_size<-.9
         if(num_courses>10){ font_size<-.7 }
         if(num_courses>20){ font_size<-.5 }
-        percentages_by_course = instructor_related_ques %>% 
-            left_join(ques_count) %>% 
-            group_by(QUES_TEXT, ANS_TEXT, course) %>% 
-            summarise(mean_PCT = sum(ANS_PCT*ques_count, na.rm = T)/sum(ques_count)) %>% 
-            mutate(Answer = factor(ANS_TEXT, levels=c("Not Applicable", "Very Low or Never", "Low", "Average", "High", "Very High or Always")), 
-                   QUES_TEXT = factor(QUES_TEXT,levels = c("The instructor is well prepared for class.", "The instructor demonstrates a thorough knowledge of the subject.", "The instructor communicates his/her subject well.", "The instructor explains complex ideas clearly.", "The instructor stimulates my interest in the core subject.", "The instructor is receptive to questions.", "The instructor is available to help me outside of class.", "The instructor encourages me to think analytically.", "Overall, the instructor is an effective teacher.")))
+        course_dist <- compute_rating_distribution(instructor_related_ques, c("QUES_TEXT", "course"))
+        percentages_by_course <- course_dist$dist |>
+            rename(Answer = ANS_TEXT, mean_PCT = pct)
         
         # Create string wrap so that the titles are legible
         swr = function(percentages_by_course, nwrap=20) {
@@ -264,6 +296,76 @@ server <- function(input, output) {
                 write.table(instructor_related_ques, file, sep = ",", row.names = FALSE)
             }
         )
+        ttb_student <- compute_top_two_box(instructor_related_ques, "QUES_TEXT", "student")
+        ttb_course  <- compute_top_two_box(instructor_related_ques, "QUES_TEXT", "course")
+
+        summary_student_plot <- plot_summary_by_question(ttb_student, "Student-Weighted", "n")
+        summary_course_plot  <- plot_summary_by_question(ttb_course, "Course-Weighted", "n_courses")
+
+        output$summary_student_plot <- renderPlot({ summary_student_plot })
+        output$summary_course_plot  <- renderPlot({ summary_course_plot })
+
+        output$downloadSummaryStudentPlot <- downloadHandler(
+            filename = "SummaryByQuestion_StudentWeighted.png",
+            content = function(file) { ggsave(file, summary_student_plot, width = 7, height = 5, dpi = 300) })
+        output$downloadSummaryCoursePlot <- downloadHandler(
+            filename = "SummaryByQuestion_CourseWeighted.png",
+            content = function(file) { ggsave(file, summary_course_plot, width = 7, height = 5, dpi = 300) })
+        output$downloadSummaryStudentData <- downloadHandler(
+            filename = "summary_by_question_student.csv",
+            content = function(file) { write.table(ttb_student, file, sep = ",", row.names = FALSE) })
+        output$downloadSummaryCourseData <- downloadHandler(
+            filename = "summary_by_question_course.csv",
+            content = function(file) { write.table(ttb_course, file, sep = ",", row.names = FALSE) })
+
+        trend_student <- compute_top_two_box(instructor_related_ques, c("QUES_TEXT","term"), "student")
+        trend_course  <- compute_top_two_box(instructor_related_ques, c("QUES_TEXT","term"), "course")
+
+        trend_student_plot <- plot_trends(trend_student, "Student-Weighted")
+        trend_course_plot  <- plot_trends(trend_course, "Course-Weighted")
+
+        output$trend_student_plot <- renderPlot({ trend_student_plot })
+        output$trend_course_plot  <- renderPlot({ trend_course_plot })
+
+        output$downloadTrendStudentPlot <- downloadHandler(
+            filename = "Trends_StudentWeighted.png",
+            content = function(file) { ggsave(file, trend_student_plot, width = 9, height = 6, dpi = 300) })
+        output$downloadTrendCoursePlot <- downloadHandler(
+            filename = "Trends_CourseWeighted.png",
+            content = function(file) { ggsave(file, trend_course_plot, width = 9, height = 6, dpi = 300) })
+        output$downloadTrendStudentData <- downloadHandler(
+            filename = "trends_student.csv",
+            content = function(file) { write.table(trend_student, file, sep = ",", row.names = FALSE) })
+        output$downloadTrendCourseData <- downloadHandler(
+            filename = "trends_course.csv",
+            content = function(file) { write.table(trend_course, file, sep = ",", row.names = FALSE) })
+
+        response_count_plot <- plot_response_counts(instructor_related_ques)
+        response_count_data <- instructor_related_ques |>
+            group_by(course, term, QUES_TEXT) |>
+            summarise(n = sum(ANS_COUNT[ANS_TEXT != "Not Applicable"]), .groups = "drop") |>
+            group_by(course, term) |>
+            summarise(respondents = max(n), .groups = "drop")
+
+        output$response_count_plot <- renderPlot({ response_count_plot })
+        output$downloadResponseCountPlot <- downloadHandler(
+            filename = "ResponseCountsByCourse.png",
+            content = function(file) { ggsave(file, response_count_plot, width = 7, height = 5, dpi = 300) })
+        output$downloadResponseCountData <- downloadHandler(
+            filename = "response_counts_by_course.csv",
+            content = function(file) { write.table(response_count_data, file, sep = ",", row.names = FALSE) })
+
+        heatmap_plot <- plot_question_course_heatmap(instructor_related_ques)
+        heatmap_data <- compute_top_two_box(instructor_related_ques, c("QUES_TEXT","course"), "student")
+
+        output$heatmap_plot <- renderPlot({ heatmap_plot })
+        output$downloadHeatmapPlot <- downloadHandler(
+            filename = "QuestionByCourseHeatmap.png",
+            content = function(file) { ggsave(file, heatmap_plot, width = 8, height = 5, dpi = 300) })
+        output$downloadHeatmapData <- downloadHandler(
+            filename = "question_by_course.csv",
+            content = function(file) { write.table(heatmap_data, file, sep = ",", row.names = FALSE) })
+
         #Create a course inventory
         responses_by_course = ques_count %>% 
             group_by(term, course) %>%  
