@@ -68,9 +68,21 @@ All summaries are derived from `ANS_COUNT` (raw counts), not the pre-computed
 yields a properly response-weighted pooled estimate and clean N/A handling in one
 place.
 
-"Overall" pooling is student-weighted (a 50-respondent course contributes more
-than a 5-respondent course). This is stated on the relevant charts. Course-weighted
-pooling is possible future work, not in this scope.
+Two pooling methods are both reported, because instructors are evaluated on both
+scales:
+
+- **Student-weighted:** pool all `ANS_COUNT` across courses, then compute
+  top-two-box. A 50-respondent course contributes more than a 5-respondent course.
+  Answers "how did the average student rate this instructor."
+- **Course-weighted:** compute top-two-box per course first, then take the
+  unweighted mean across courses. Each course counts equally regardless of size.
+  Answers "how did the average course go," so a single large intro course does not
+  dominate.
+
+Both are computed wherever pooling across courses occurs (the summary-by-question
+and trend charts) and presented as separate charts. Charts where no cross-course
+pooling happens (per-course bars, the heatmap, the existing stacked distributions)
+are unaffected.
 
 ## Architecture
 
@@ -109,8 +121,10 @@ Extract pure functions into `R/helpers.R`, sourced by `app.R`:
 - `read_soot_xlsx(path, name)` — XLSX reader (Phase B).
 - `parse_course_term(filename)` — filename -> list(course, term).
 - `order_terms(term_vector)` — return terms as a chronological ordered factor.
-- `compute_top_two_box(canonical, group_vars)` — top-two-box % + rating-respondent
-  n per group.
+- `compute_top_two_box(canonical, group_vars, weighting = "student")` — top-two-box
+  % + rating-respondent n per group. `weighting = "student"` pools counts across
+  courses; `weighting = "course"` computes per-course top-two-box and averages it
+  equally across courses within each group.
 - `compute_rating_distribution(canonical, group_vars)` — per-group answer
   distribution computed from counts excluding "Not Applicable", with the N/A share
   reported separately.
@@ -121,18 +135,41 @@ real files in `sample-data/`.
 
 ## Graphs
 
-### Four new graphs
+### Six new graphs
 Each is appended as its own UI section with `plotOutput` + a PNG download + a CSV
-download, matching the existing pattern.
+download, matching the existing pattern. The two summary charts and the two trend
+charts come in student-weighted and course-weighted variants, presented as separate
+sections (per the both-scales requirement above).
 
-1. **Summary score by question** — horizontal bar, 9 questions, x = top-two-box %,
-   each bar annotated with its rating-respondent n. Questions in canonical SOOT
-   order so "Overall, the instructor is an effective teacher." is always findable
-   and comparable across instructors. Pooled across all uploaded courses/terms.
+1a. **Summary score by question (student-weighted)** — horizontal bar, 9 questions,
+   x = top-two-box %, each bar annotated with its rating-respondent n. Questions in
+   canonical SOOT order so "Overall, the instructor is an effective teacher." is
+   always findable and comparable across instructors. Pooled across all uploaded
+   courses/terms, student-weighted.
 
-2. **Summary trends by term** — small multiples, one panel per question, line of
-   top-two-box % across terms in chronological order, y fixed 0-100. With a single
-   term it degrades to a single labeled point.
+1b. **Summary score by question (course-weighted)** — identical layout, but each
+   course's top-two-box is averaged equally across courses. Annotated with the
+   number of courses contributing.
+
+2a. **Summary trends by term (student-weighted)** — small multiples, one panel per
+   question, line of student-weighted top-two-box % across terms in chronological
+   order, y fixed 0-100. With a single term it degrades to a single labeled point.
+
+2b. **Summary trends by term (course-weighted)** — identical layout, course-weighted
+   within each term.
+
+An explanatory paragraph is shown in the UI directly below the summary-by-question
+charts (static `p()` text, always visible), so a viewer understands why two versions
+exist. Exact copy:
+
+> Two summaries of the same ratings are shown. The student-weighted version pools
+> every student response together, so courses with more respondents have more
+> influence; it reflects the experience of the average student. The course-weighted
+> version summarizes each course on its own and then averages those course
+> summaries equally, so every course counts the same regardless of size; it
+> reflects the typical course. The two differ when class sizes vary: a single large
+> course pulls the student-weighted number toward its own ratings, while the
+> course-weighted number gives a small seminar the same say as a large lecture.
 
 3. **Response counts by course** — bar of rating respondents per course, grouped by
    term. The reliability layer: surfaces which courses' percentages rest on small
@@ -190,7 +227,6 @@ PNGs follow the same styling.
 ## Out of scope (future work)
 - Course-level and self-assessment questions (10-23): workload, expected grade,
   interest before/after, etc. Present in both formats but not surfaced.
-- Course-weighted (vs student-weighted) pooling toggle.
 - Mean-on-1-5 or net-favorable summary metrics (top-two-box chosen).
 - Multi-instructor handling using XLSX `InstructorName`.
 
