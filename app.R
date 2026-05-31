@@ -4,6 +4,7 @@ library(tidyverse)
 library(purrr)
 library(ggplot2)
 library(viridisLite)
+source("R/helpers.R")
 #library("shiny.collections")
 
 ## Harpur College SOOT Aggregation
@@ -95,37 +96,24 @@ server <- function(input, output) {
             return()
         }
 
-        files <- input$csvs$datapath
-        terms = list()
-        courses = list()
-        for (i in seq_along(files)) {
-            file_info <- str_split(input$csvs$name[i], "-|_|\\.")
-            terms[i]  <- unlist(file_info)[3]
-            courses[i] <- unlist(file_info)[1]
+        # Read every uploaded file through the ingestion layer into the
+        # canonical long format. Empty/unsupported files are skipped (NULL).
+        full <- NULL
+        for (i in seq_along(input$csvs$datapath)) {
+            one <- tryCatch(
+                read_soot_file(input$csvs$datapath[i], input$csvs$name[i]),
+                error = function(e) { showNotification(conditionMessage(e), type = "error"); NULL }
+            )
+            if (!is.null(one)) full <- bind_rows(full, one)
         }
-
-        # Generate data frame by reading each uploaded CSV once and tagging it
-        # with the course and term parsed from its filename
-        full = NULL
-        for (i in seq_along(files)) {
-            full = rbind(full, as_tibble(read.csv(files[i], header = T))
-                         %>% mutate(course = unlist(courses[i]), term = unlist(terms[i])))
+        if (is.null(full) || nrow(full) == 0) {
+            showNotification("No usable data found in the uploaded files.", type = "warning")
+            return()
         }
 
         # Aggregate the info by question
-        instructor_related_ques = full %>% filter(QUES_TEXT %in% c("The instructor is well prepared for class.",
-                                                                   "The instructor demonstrates a thorough knowledge of the subject.",
-                                                                   "The instructor communicates his/her subject well.",
-                                                                   "The instructor explains complex ideas clearly.",
-                                                                   "The instructor stimulates my interest in the core subject.",
-                                                                   "The instructor is receptive to questions.",
-                                                                   "The instructor is available to help me outside of class.",
-                                                                   "The instructor encourages me to think analytically.",
-                                                                   "Overall, the instructor is an effective teacher.")) %>% 
-            mutate(fall.spring = ifelse(nchar(term)==6,substr(term,1,4),substr(term,1,3)),
-                   year = ifelse(nchar(term)==6,substr(term,5,6),substr(term,4,5)),
-                   term_month = ifelse(fall.spring=="FALL", 9, 2)) %>% 
-            unite(term, year, term_month, fall.spring)
+        instructor_related_ques <- full |>
+            filter(QUES_TEXT %in% INSTRUCTOR_QUESTIONS)
         
         ques_count = instructor_related_ques %>% 
             group_by(QUES_TEXT,term,course) %>% 
