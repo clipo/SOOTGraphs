@@ -94,3 +94,19 @@ test_that("compute_top_two_box returns NA for an all-NA question", {
   res <- compute_top_two_box(d, group_vars = "QUES_TEXT", weighting = "student")
   expect_true(is.na(res$top_two_box))
 })
+
+test_that("compute_rating_distribution excludes N/A and reports its share", {
+  d <- tibble::tibble(
+    course = "A", term = "FALL24", QUES_TEXT = "Qx",
+    ANS_TEXT = factor(c("Not Applicable","Average","High","Very High or Always"),
+                      levels = ANS_LEVELS, ordered = TRUE),
+    ANS_COUNT = c(1, 2, 3, 5)
+  )
+  res <- compute_rating_distribution(d, group_vars = "QUES_TEXT")
+  # Among the 10 non-NA ratings: Average 20%, High 30%, Very High 50%
+  high <- res$dist[res$dist$ANS_TEXT == "High", ]
+  expect_equal(high$pct, 30)
+  expect_false("Not Applicable" %in% res$dist$ANS_TEXT)
+  # N/A share is 1 of 11 total responses
+  expect_equal(round(res$na_share$na_pct, 2), 9.09)
+})

@@ -115,3 +115,27 @@ compute_top_two_box <- function(data, group_vars, weighting = c("student", "cour
       mutate(top_two_box = ifelse(is.nan(top_two_box), NA_real_, top_two_box))
   }
 }
+
+# Rating distribution per group, computed from counts EXCLUDING "Not Applicable",
+# so the colored bars reflect only students who rated. The N/A share is reported
+# separately. Returns a list(dist = <per-answer percentages>, na_share = <per-group>).
+compute_rating_distribution <- function(data, group_vars) {
+  totals <- data |>
+    group_by(across(all_of(group_vars))) |>
+    summarise(total_all = sum(ANS_COUNT),
+              na_count = sum(ANS_COUNT[ANS_TEXT == "Not Applicable"]),
+              non_na = sum(ANS_COUNT[ANS_TEXT != "Not Applicable"]),
+              .groups = "drop") |>
+    mutate(na_pct = ifelse(total_all > 0, 100 * na_count / total_all, NA_real_))
+
+  dist <- data |>
+    filter(ANS_TEXT != "Not Applicable") |>
+    group_by(across(all_of(c(group_vars, "ANS_TEXT")))) |>
+    summarise(count = sum(ANS_COUNT), .groups = "drop") |>
+    left_join(totals |> select(all_of(group_vars), non_na), by = group_vars) |>
+    mutate(pct = ifelse(non_na > 0, 100 * count / non_na, NA_real_),
+           ANS_TEXT = droplevels(factor(ANS_TEXT, levels = ANS_LEVELS, ordered = TRUE)))
+
+  list(dist = dist,
+       na_share = totals |> select(all_of(group_vars), na_count, na_pct))
+}
