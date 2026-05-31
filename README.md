@@ -19,4 +19,6 @@ responses by course, and a question-by-course top-two-box heatmap. The existing
 stacked charts now exclude "Not Applicable" from the rating bars and order terms
 chronologically.
 
-XLSX import is planned next; the app currently accepts CSV files only.
+The app now accepts both the older aggregate CSV export and the newer
+per-respondent XLSX export, and both produce the same graphs. XLSX uploads
+additionally enable the response-rate-by-course chart.

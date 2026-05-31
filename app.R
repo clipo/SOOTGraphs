@@ -40,7 +40,7 @@ ui <- fluidPage(
     fluidRow(
         column(width = 4,
                fileInput("csvs",
-                         label="Upload SOOT CSV files here",
+                         label="Upload SOOT CSV or XLSX files here",
                          multiple = TRUE)),
         column(width = 4,
                br(),
