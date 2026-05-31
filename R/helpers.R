@@ -75,3 +75,43 @@ read_soot_file <- function(path, name) {
     NULL
   }
 }
+
+# Per-course-per-group top-two-box from raw counts. Internal helper.
+.top_two_box_by_course <- function(data, group_vars) {
+  data |>
+    group_by(across(all_of(c("course", group_vars)))) |>
+    summarise(
+      non_na = sum(ANS_COUNT[ANS_TEXT != "Not Applicable"]),
+      top    = sum(ANS_COUNT[ANS_TEXT %in% TOP_BOX_LEVELS]),
+      .groups = "drop"
+    ) |>
+    mutate(course_ttb = ifelse(non_na > 0, 100 * top / non_na, NA_real_))
+}
+
+# Top-two-box percentage per group, by weighting method.
+#   weighting = "student": pool all counts, then compute the percentage.
+#   weighting = "course":  per-course percentage, averaged equally across courses.
+# Returns one row per group with: top_two_box, plus n (student) or n_courses (course).
+compute_top_two_box <- function(data, group_vars, weighting = c("student", "course")) {
+  weighting <- match.arg(weighting)
+  if (weighting == "student") {
+    data |>
+      group_by(across(all_of(group_vars))) |>
+      summarise(
+        n = sum(ANS_COUNT[ANS_TEXT != "Not Applicable"]),
+        top = sum(ANS_COUNT[ANS_TEXT %in% TOP_BOX_LEVELS]),
+        .groups = "drop"
+      ) |>
+      mutate(top_two_box = ifelse(n > 0, 100 * top / n, NA_real_)) |>
+      select(all_of(group_vars), top_two_box, n)
+  } else {
+    .top_two_box_by_course(data, group_vars) |>
+      group_by(across(all_of(group_vars))) |>
+      summarise(
+        top_two_box = mean(course_ttb, na.rm = TRUE),
+        n_courses = sum(!is.na(course_ttb)),
+        .groups = "drop"
+      ) |>
+      mutate(top_two_box = ifelse(is.nan(top_two_box), NA_real_, top_two_box))
+  }
+}

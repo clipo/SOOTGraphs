@@ -59,3 +59,38 @@ test_that("read_soot_file rejects XLSX in Phase A", {
   expect_error(read_soot_file("whatever.xlsx", "ANTH243-01_FALL25.xlsx"),
                "not yet supported")
 })
+
+make_canonical <- function() {
+  tibble::tibble(
+    course = c(rep("A", 3), rep("B", 3)),
+    term   = "FALL24",
+    QUES_TEXT = "Qx",
+    ANS_TEXT = factor(c("Average","High","Very High or Always",
+                        "Low","High","Very High or Always"),
+                      levels = ANS_LEVELS, ordered = TRUE),
+    ANS_COUNT = c(2, 3, 5,   18, 1, 1)
+  )
+}
+
+test_that("compute_top_two_box student-weighted pools counts", {
+  res <- compute_top_two_box(make_canonical(), group_vars = "QUES_TEXT",
+                             weighting = "student")
+  expect_equal(round(res$top_two_box, 2), 33.33)  # (8) / (10+20) * 100
+  expect_equal(res$n, 30)                          # non-NA respondents pooled
+})
+
+test_that("compute_top_two_box course-weighted averages course scores equally", {
+  res <- compute_top_two_box(make_canonical(), group_vars = "QUES_TEXT",
+                             weighting = "course")
+  expect_equal(round(res$top_two_box, 2), 45.00)   # mean(80, 10)
+  expect_equal(res$n_courses, 2)
+})
+
+test_that("compute_top_two_box returns NA for an all-NA question", {
+  d <- tibble::tibble(course = "A", term = "FALL24", QUES_TEXT = "Qx",
+                      ANS_TEXT = factor("Not Applicable", levels = ANS_LEVELS,
+                                        ordered = TRUE),
+                      ANS_COUNT = 5)
+  res <- compute_top_two_box(d, group_vars = "QUES_TEXT", weighting = "student")
+  expect_true(is.na(res$top_two_box))
+})
