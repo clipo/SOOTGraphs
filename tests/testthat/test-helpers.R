@@ -141,3 +141,26 @@ test_that("compute_rating_distribution excludes N/A and reports its share", {
   # N/A share is 1 of 11 total responses
   expect_equal(round(res$na_share$na_pct, 2), 9.09)
 })
+
+test_that("a mixed CSV + XLSX batch ingests through one canonical pipeline", {
+  files <- c("ANTH243-01_FALL24.csv", "TEST101-01_FALL25.xlsx")
+  full <- do.call(dplyr::bind_rows,
+                  lapply(files, function(f) read_soot_file(fixture(f), f)))
+  expect_true(all(c("ANTH243", "TEST101") %in% full$course))
+  irq <- dplyr::filter(full, QUES_TEXT %in% INSTRUCTOR_QUESTIONS)
+  expect_true(any(is.na(irq$response_rate)))
+  expect_true(any(!is.na(irq$response_rate)))
+})
+
+test_that("the real sample XLSX reads without error (skipped if sample absent)", {
+  zip <- file.path("..", "..", "sample-data", "sample-data.zip")
+  skip_if_not(file.exists(zip), "sample-data.zip not present")
+  tmp <- tempfile(); dir.create(tmp)
+  utils::unzip(zip, exdir = tmp)
+  xlsx <- list.files(file.path(tmp, "SOOTs"), pattern = "\\.xlsx$", full.names = TRUE)
+  skip_if(length(xlsx) == 0, "no sample XLSX")
+  res <- read_soot_file(xlsx[1], basename(xlsx[1]))
+  expect_true(nrow(res) > 0)
+  expect_true(all(res$QUES_TEXT %in% INSTRUCTOR_QUESTIONS))
+  expect_true(is.numeric(res$response_rate))
+})
