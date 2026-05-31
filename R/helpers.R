@@ -174,3 +174,19 @@ plot_trends <- function(ttb_by_term, weighting_label) {
     theme(axis.text.x = element_text(angle = -45, hjust = 0, size = 7),
           strip.text = element_text(size = 7))
 }
+
+# Bar of rating respondents per course (max over questions), grouped by term.
+plot_response_counts <- function(data) {
+  counts <- data |>
+    group_by(course, term, QUES_TEXT) |>
+    summarise(n = sum(ANS_COUNT[ANS_TEXT != "Not Applicable"]), .groups = "drop") |>
+    group_by(course, term) |>
+    summarise(respondents = max(n), .groups = "drop") |>
+    mutate(term = order_terms(term))
+  ggplot(counts, aes(x = course, y = respondents, fill = term)) +
+    geom_col(position = position_dodge(preserve = "single")) +
+    scale_fill_viridis_d() +
+    labs(x = "", y = "Rating respondents", fill = "Term",
+         title = "Response Counts by Course") +
+    theme(axis.text.x = element_text(angle = -45, hjust = 0, size = 8))
+}

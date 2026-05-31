@@ -105,6 +105,14 @@ ui <- fluidPage(
         downloadButton("downloadTrendCoursePlot", "Download Course-Weighted Trend"),
         downloadButton("downloadTrendCourseData", "Download Course-Weighted Trend Data")
     ),
+    h2("Response Counts by Course"),
+    p("Number of rating respondents per course. Percentages from courses with few
+      respondents are less reliable; use this to judge how much weight to give each bar."),
+    fluidRow(plotOutput("response_count_plot")),
+    fluidRow(
+        downloadButton("downloadResponseCountPlot", "Download Response Count Plot"),
+        downloadButton("downloadResponseCountData", "Download Response Count Data")
+    ),
     h2("Course Inventory"),
     p("Generate a course inventory, which includes the number of responses for each course. 
          You may also want to add a column for the overall enrollment, in order to show the overall response rate for each course."),
@@ -323,6 +331,21 @@ server <- function(input, output) {
         output$downloadTrendCourseData <- downloadHandler(
             filename = "trends_course.csv",
             content = function(file) { write.table(trend_course, file, sep = ",", row.names = FALSE) })
+
+        response_count_plot <- plot_response_counts(instructor_related_ques)
+        response_count_data <- instructor_related_ques |>
+            group_by(course, term, QUES_TEXT) |>
+            summarise(n = sum(ANS_COUNT[ANS_TEXT != "Not Applicable"]), .groups = "drop") |>
+            group_by(course, term) |>
+            summarise(respondents = max(n), .groups = "drop")
+
+        output$response_count_plot <- renderPlot({ response_count_plot })
+        output$downloadResponseCountPlot <- downloadHandler(
+            filename = "ResponseCountsByCourse.png",
+            content = function(file) { ggsave(file, response_count_plot, width = 7, height = 5, dpi = 300) })
+        output$downloadResponseCountData <- downloadHandler(
+            filename = "response_counts_by_course.csv",
+            content = function(file) { write.table(response_count_data, file, sep = ",", row.names = FALSE) })
 
         #Create a course inventory
         responses_by_course = ques_count %>% 
