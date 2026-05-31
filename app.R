@@ -75,6 +75,25 @@ ui <- fluidPage(
         downloadButton("downloadCoursePlot", "Download Aggregated Course Plot"),
         downloadButton("downloadCourseData", "Download Aggregated Course Data as CSV")
     ),
+    h2("Summary Score by Question"),
+    fluidRow(plotOutput("summary_student_plot")),
+    fluidRow(
+        downloadButton("downloadSummaryStudentPlot", "Download Student-Weighted Plot"),
+        downloadButton("downloadSummaryStudentData", "Download Student-Weighted Data")
+    ),
+    fluidRow(plotOutput("summary_course_plot")),
+    fluidRow(
+        downloadButton("downloadSummaryCoursePlot", "Download Course-Weighted Plot"),
+        downloadButton("downloadSummaryCourseData", "Download Course-Weighted Data")
+    ),
+    p("Two summaries of the same ratings are shown. The student-weighted version pools
+      every student response together, so courses with more respondents have more
+      influence; it reflects the experience of the average student. The course-weighted
+      version summarizes each course on its own and then averages those course summaries
+      equally, so every course counts the same regardless of size; it reflects the typical
+      course. The two differ when class sizes vary: a single large course pulls the
+      student-weighted number toward its own ratings, while the course-weighted number
+      gives a small seminar the same say as a large lecture."),
     h2("Course Inventory"),
     p("Generate a course inventory, which includes the number of responses for each course. 
          You may also want to add a column for the overall enrollment, in order to show the overall response rate for each course."),
@@ -250,6 +269,28 @@ server <- function(input, output) {
                 write.table(instructor_related_ques, file, sep = ",", row.names = FALSE)
             }
         )
+        ttb_student <- compute_top_two_box(instructor_related_ques, "QUES_TEXT", "student")
+        ttb_course  <- compute_top_two_box(instructor_related_ques, "QUES_TEXT", "course")
+
+        summary_student_plot <- plot_summary_by_question(ttb_student, "Student-Weighted", "n")
+        summary_course_plot  <- plot_summary_by_question(ttb_course, "Course-Weighted", "n_courses")
+
+        output$summary_student_plot <- renderPlot({ summary_student_plot })
+        output$summary_course_plot  <- renderPlot({ summary_course_plot })
+
+        output$downloadSummaryStudentPlot <- downloadHandler(
+            filename = "SummaryByQuestion_StudentWeighted.png",
+            content = function(file) { ggsave(file, summary_student_plot, width = 7, height = 5, dpi = 300) })
+        output$downloadSummaryCoursePlot <- downloadHandler(
+            filename = "SummaryByQuestion_CourseWeighted.png",
+            content = function(file) { ggsave(file, summary_course_plot, width = 7, height = 5, dpi = 300) })
+        output$downloadSummaryStudentData <- downloadHandler(
+            filename = "summary_by_question_student.csv",
+            content = function(file) { write.table(ttb_student, file, sep = ",", row.names = FALSE) })
+        output$downloadSummaryCourseData <- downloadHandler(
+            filename = "summary_by_question_course.csv",
+            content = function(file) { write.table(ttb_course, file, sep = ",", row.names = FALSE) })
+
         #Create a course inventory
         responses_by_course = ques_count %>% 
             group_by(term, course) %>%  

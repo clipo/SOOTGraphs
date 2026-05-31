@@ -5,6 +5,7 @@ library(dplyr)
 library(tidyr)
 library(stringr)
 library(tibble)
+library(ggplot2)
 
 ANS_LEVELS <- c("Not Applicable", "Very Low or Never", "Low",
                 "Average", "High", "Very High or Always")
@@ -138,4 +139,22 @@ compute_rating_distribution <- function(data, group_vars) {
 
   list(dist = dist,
        na_share = totals |> select(all_of(group_vars), na_count, na_pct))
+}
+
+# Horizontal bar of top-two-box % per question, in canonical order.
+plot_summary_by_question <- function(ttb, weighting_label, n_label_col) {
+  ttb <- ttb |>
+    mutate(QUES_TEXT = factor(QUES_TEXT, levels = rev(INSTRUCTOR_QUESTIONS)),
+           lbl = ifelse(is.na(top_two_box), "n/a",
+                        sprintf("%.0f%% (%s=%d)", top_two_box,
+                                ifelse("n" %in% names(ttb), "n", "courses"),
+                                .data[[n_label_col]])))
+  ggplot(ttb, aes(x = QUES_TEXT, y = top_two_box)) +
+    geom_col(fill = viridisLite::viridis(1, begin = 0.4)) +
+    geom_text(aes(label = lbl), hjust = -0.05, size = 3) +
+    coord_flip() +
+    scale_y_continuous(limits = c(0, 109), breaks = seq(0, 100, 25)) +
+    labs(x = "", y = "Top-two-box % (High or Very High)",
+         title = sprintf("Summary Score by Question (%s)", weighting_label)) +
+    theme(axis.text.y = element_text(size = 9))
 }
