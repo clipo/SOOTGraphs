@@ -113,6 +113,14 @@ ui <- fluidPage(
         downloadButton("downloadResponseCountPlot", "Download Response Count Plot"),
         downloadButton("downloadResponseCountData", "Download Response Count Data")
     ),
+    h2("Question-by-Course Comparison"),
+    p("Top-two-box percentage for each question in each course. Use it to see whether a
+      weaker dimension is specific to one course or consistent across courses."),
+    fluidRow(plotOutput("heatmap_plot", height = "500px")),
+    fluidRow(
+        downloadButton("downloadHeatmapPlot", "Download Heatmap"),
+        downloadButton("downloadHeatmapData", "Download Heatmap Data")
+    ),
     h2("Course Inventory"),
     p("Generate a course inventory, which includes the number of responses for each course. 
          You may also want to add a column for the overall enrollment, in order to show the overall response rate for each course."),
@@ -346,6 +354,17 @@ server <- function(input, output) {
         output$downloadResponseCountData <- downloadHandler(
             filename = "response_counts_by_course.csv",
             content = function(file) { write.table(response_count_data, file, sep = ",", row.names = FALSE) })
+
+        heatmap_plot <- plot_question_course_heatmap(instructor_related_ques)
+        heatmap_data <- compute_top_two_box(instructor_related_ques, c("QUES_TEXT","course"), "student")
+
+        output$heatmap_plot <- renderPlot({ heatmap_plot })
+        output$downloadHeatmapPlot <- downloadHandler(
+            filename = "QuestionByCourseHeatmap.png",
+            content = function(file) { ggsave(file, heatmap_plot, width = 8, height = 5, dpi = 300) })
+        output$downloadHeatmapData <- downloadHandler(
+            filename = "question_by_course.csv",
+            content = function(file) { write.table(heatmap_data, file, sep = ",", row.names = FALSE) })
 
         #Create a course inventory
         responses_by_course = ques_count %>% 

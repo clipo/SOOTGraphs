@@ -175,6 +175,20 @@ plot_trends <- function(ttb_by_term, weighting_label) {
           strip.text = element_text(size = 7))
 }
 
+# Heatmap of top-two-box % with questions (rows) by course (columns).
+plot_question_course_heatmap <- function(data) {
+  ttb <- compute_top_two_box(data, c("QUES_TEXT", "course"), "student") |>
+    mutate(QUES_TEXT = factor(QUES_TEXT, levels = rev(INSTRUCTOR_QUESTIONS)))
+  ggplot(ttb, aes(x = course, y = QUES_TEXT, fill = top_two_box)) +
+    geom_tile(color = "white") +
+    geom_text(aes(label = ifelse(is.na(top_two_box), "", sprintf("%.0f", top_two_box))),
+              size = 3, color = "white") +
+    scale_fill_viridis_c(limits = c(0, 100), name = "Top-two-box %") +
+    labs(x = "", y = "", title = "Top-Two-Box % by Question and Course") +
+    theme(axis.text.y = element_text(size = 8),
+          axis.text.x = element_text(angle = -45, hjust = 0, size = 8))
+}
+
 # Bar of rating respondents per course (max over questions), grouped by term.
 plot_response_counts <- function(data) {
   counts <- data |>
