@@ -158,3 +158,19 @@ plot_summary_by_question <- function(ttb, weighting_label, n_label_col) {
          title = sprintf("Summary Score by Question (%s)", weighting_label)) +
     theme(axis.text.y = element_text(size = 9))
 }
+
+# Small-multiple line of top-two-box % across terms, one panel per question.
+plot_trends <- function(ttb_by_term, weighting_label) {
+  ttb_by_term <- ttb_by_term |>
+    mutate(term = order_terms(term),
+           QUES_TEXT = factor(QUES_TEXT, levels = INSTRUCTOR_QUESTIONS))
+  ggplot(ttb_by_term, aes(x = term, y = top_two_box, group = 1)) +
+    geom_line(color = viridisLite::viridis(1, begin = 0.4)) +
+    geom_point(color = viridisLite::viridis(1, begin = 0.4)) +
+    facet_wrap(~QUES_TEXT, labeller = label_wrap_gen(width = 25)) +
+    scale_y_continuous(limits = c(0, 100)) +
+    labs(x = "", y = "Top-two-box %",
+         title = sprintf("Summary Score Trends by Term (%s)", weighting_label)) +
+    theme(axis.text.x = element_text(angle = -45, hjust = 0, size = 7),
+          strip.text = element_text(size = 7))
+}

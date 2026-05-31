@@ -94,6 +94,17 @@ ui <- fluidPage(
       course. The two differ when class sizes vary: a single large course pulls the
       student-weighted number toward its own ratings, while the course-weighted number
       gives a small seminar the same say as a large lecture."),
+    h2("Summary Score Trends by Term"),
+    fluidRow(plotOutput("trend_student_plot", height = "600px")),
+    fluidRow(
+        downloadButton("downloadTrendStudentPlot", "Download Student-Weighted Trend"),
+        downloadButton("downloadTrendStudentData", "Download Student-Weighted Trend Data")
+    ),
+    fluidRow(plotOutput("trend_course_plot", height = "600px")),
+    fluidRow(
+        downloadButton("downloadTrendCoursePlot", "Download Course-Weighted Trend"),
+        downloadButton("downloadTrendCourseData", "Download Course-Weighted Trend Data")
+    ),
     h2("Course Inventory"),
     p("Generate a course inventory, which includes the number of responses for each course. 
          You may also want to add a column for the overall enrollment, in order to show the overall response rate for each course."),
@@ -290,6 +301,28 @@ server <- function(input, output) {
         output$downloadSummaryCourseData <- downloadHandler(
             filename = "summary_by_question_course.csv",
             content = function(file) { write.table(ttb_course, file, sep = ",", row.names = FALSE) })
+
+        trend_student <- compute_top_two_box(instructor_related_ques, c("QUES_TEXT","term"), "student")
+        trend_course  <- compute_top_two_box(instructor_related_ques, c("QUES_TEXT","term"), "course")
+
+        trend_student_plot <- plot_trends(trend_student, "Student-Weighted")
+        trend_course_plot  <- plot_trends(trend_course, "Course-Weighted")
+
+        output$trend_student_plot <- renderPlot({ trend_student_plot })
+        output$trend_course_plot  <- renderPlot({ trend_course_plot })
+
+        output$downloadTrendStudentPlot <- downloadHandler(
+            filename = "Trends_StudentWeighted.png",
+            content = function(file) { ggsave(file, trend_student_plot, width = 9, height = 6, dpi = 300) })
+        output$downloadTrendCoursePlot <- downloadHandler(
+            filename = "Trends_CourseWeighted.png",
+            content = function(file) { ggsave(file, trend_course_plot, width = 9, height = 6, dpi = 300) })
+        output$downloadTrendStudentData <- downloadHandler(
+            filename = "trends_student.csv",
+            content = function(file) { write.table(trend_student, file, sep = ",", row.names = FALSE) })
+        output$downloadTrendCourseData <- downloadHandler(
+            filename = "trends_course.csv",
+            content = function(file) { write.table(trend_course, file, sep = ",", row.names = FALSE) })
 
         #Create a course inventory
         responses_by_course = ques_count %>% 
