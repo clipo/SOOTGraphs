@@ -174,3 +174,57 @@ test_that("response_rate_by_course summarizes available rates and ignores NA-onl
   expect_equal(sort(rr$course), c("A","B"))
   expect_equal(rr$response_rate[rr$course == "A"], 80)
 })
+
+test_that("expand_uploads passes through loose files unchanged", {
+  res <- expand_uploads(c("/tmp/a.csv", "/tmp/b.xlsx"), c("a.csv", "b.xlsx"))
+  expect_equal(res$name, c("a.csv", "b.xlsx"))
+  expect_equal(res$path, c("/tmp/a.csv", "/tmp/b.xlsx"))
+})
+
+test_that("expand_uploads extracts CSV/XLSX from a zip (incl nested dirs, ignoring mac cruft)", {
+  d <- tempfile("zipsrc_"); dir.create(file.path(d, "sub"), recursive = TRUE)
+  dir.create(file.path(d, "__MACOSX"))
+  writeLines("x", file.path(d, "ANTH243-01_FALL24.csv"))
+  writeLines("y", file.path(d, "sub", "ANTH482C-01_SPG25.xlsx"))
+  writeLines("z", file.path(d, "__MACOSX", "._ANTH243-01_FALL24.csv"))
+  zpath <- tempfile(fileext = ".zip")
+  withr::with_dir(d, utils::zip(zpath, files = list.files(".", recursive = TRUE), flags = "-q"))
+  res <- expand_uploads(zpath, "bundle.zip")
+  expect_setequal(res$name, c("ANTH243-01_FALL24.csv", "ANTH482C-01_SPG25.xlsx"))
+  expect_true(all(file.exists(res$path)))
+})
+
+test_that("expand_uploads handles a mixed loose-file + zip batch", {
+  d <- tempfile("zipsrc2_"); dir.create(d)
+  writeLines("x", file.path(d, "ANTH243-01_FALL19.csv"))
+  zpath <- tempfile(fileext = ".zip")
+  withr::with_dir(d, utils::zip(zpath, files = list.files("."), flags = "-q"))
+  res <- expand_uploads(c("/tmp/loose.csv", zpath), c("loose.csv", "bundle.zip"))
+  expect_setequal(res$name, c("loose.csv", "ANTH243-01_FALL19.csv"))
+})
+
+test_that("build_report_pdf writes a multi-page PDF: cover + one page per chart", {
+  library(ggplot2)
+  plots <- list(
+    "Chart One" = ggplot(mtcars, aes(mpg, wt)) + geom_point(),
+    "Chart Two" = ggplot(mtcars, aes(hp, qsec)) + geom_point()
+  )
+  meta <- list(courses = c("ANTH243","ANTH482C"), terms = c("FALL24","SPG25"),
+               instructor = "Test Instructor", n_courses = 2, date = as.Date("2026-05-31"))
+  f <- tempfile(fileext = ".pdf")
+  build_report_pdf(f, plots, meta)
+  expect_true(file.exists(f))
+  expect_gt(file.info(f)$size, 0)
+  if (requireNamespace("pdftools", quietly = TRUE)) {
+    expect_equal(pdftools::pdf_info(f)$pages, 3)
+  }
+})
+
+test_that("build_report_pdf writes a one-page placeholder when there is no data", {
+  f <- tempfile(fileext = ".pdf")
+  build_report_pdf(f, list(), NULL)
+  expect_true(file.exists(f))
+  if (requireNamespace("pdftools", quietly = TRUE)) {
+    expect_equal(pdftools::pdf_info(f)$pages, 1)
+  }
+})
