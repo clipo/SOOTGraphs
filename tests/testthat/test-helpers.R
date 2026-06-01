@@ -291,3 +291,16 @@ test_that("read_context_xlsx matches the real sample mapper text with trailing p
   expect_true("My interest in subject after course" %in% res$QUES_TEXT)
   expect_true("Expected Grade" %in% res$QUES_TEXT)
 })
+
+test_that("context plot helpers render against fixture data and handle empty input", {
+  library(ggplot2)
+  ctx <- read_context_file(fixture("ANTH243-01_FALL24.csv"), "ANTH243-01_FALL24.csv")
+  for (p in list(plot_interest_shift(ctx), plot_course_demands(ctx),
+                 plot_expected_grade(ctx), plot_material_usefulness(ctx))) {
+    f <- tempfile(fileext = ".png"); ggsave(f, p, width = 6, height = 4); expect_gt(file.info(f)$size, 0)
+  }
+  for (p in list(plot_interest_shift(NULL), plot_course_demands(NULL),
+                 plot_expected_grade(NULL), plot_material_usefulness(NULL))) {
+    f <- tempfile(fileext = ".png"); ggsave(f, p, width = 6, height = 4); expect_gt(file.info(f)$size, 0)
+  }
+})

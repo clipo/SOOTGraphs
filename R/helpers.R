@@ -478,3 +478,73 @@ read_context_csv <- function(path, name) {
               ANS_TEXT = as.character(ANS_TEXT), count = as.integer(ANS_COUNT)) |>
     tibble::as_tibble()
 }
+
+# Internal: pool counts for a set of questions into a percentage composition,
+# with ANS_TEXT ordered by `levels`. Returns NULL if no rows.
+.context_compose <- function(context, questions, levels, exclude = character(0)) {
+  if (is.null(context)) return(NULL)
+  d <- context |>
+    filter(QUES_TEXT %in% questions, !ANS_TEXT %in% exclude)
+  if (nrow(d) == 0) return(NULL)
+  d |>
+    group_by(QUES_TEXT, ANS_TEXT) |>
+    summarise(count = sum(count), .groups = "drop") |>
+    mutate(ANS_TEXT = factor(ANS_TEXT, levels = levels))
+}
+
+plot_interest_shift <- function(context) {
+  qs <- c("My interest in subject before course", "My interest in subject after course")
+  d <- .context_compose(context, qs, c("Low","Medium","High"))
+  if (is.null(d)) return(context_empty_plot("Interest before vs after"))
+  d <- d |>
+    mutate(phase = factor(ifelse(grepl("before", QUES_TEXT), "Before", "After"),
+                          levels = c("Before","After"))) |>
+    group_by(phase) |> mutate(pct = 100 * count / sum(count)) |> ungroup()
+  hi <- d |> filter(ANS_TEXT == "High")
+  delta <- round(sum(hi$pct[hi$phase == "After"]) - sum(hi$pct[hi$phase == "Before"]), 0)
+  ggplot2::ggplot(d, ggplot2::aes(phase, pct, fill = ANS_TEXT)) +
+    ggplot2::geom_col() + ggplot2::scale_fill_viridis_d() +
+    ggplot2::labs(x = "", y = "Percentage", fill = "Interest",
+                  title = "Interest in the Subject, Before vs After",
+                  subtitle = sprintf("Change in share at High interest: %+d points", delta))
+}
+
+plot_course_demands <- function(context) {
+  qs <- c("Difficulty (relative to other courses)", "Workload (relative to other courses)")
+  d <- .context_compose(context, qs, c("Low","Medium","High"))
+  if (is.null(d)) return(context_empty_plot("Course demands"))
+  d <- d |>
+    mutate(item = factor(ifelse(grepl("Difficulty", QUES_TEXT), "Difficulty", "Workload"),
+                         levels = c("Difficulty","Workload"))) |>
+    group_by(item) |> mutate(pct = 100 * count / sum(count)) |> ungroup()
+  ggplot2::ggplot(d, ggplot2::aes(item, pct, fill = ANS_TEXT)) +
+    ggplot2::geom_col() + ggplot2::scale_fill_viridis_d() +
+    ggplot2::labs(x = "", y = "Percentage", fill = "Relative to other courses",
+                  title = "Course Demands: Difficulty and Workload")
+}
+
+plot_expected_grade <- function(context) {
+  d <- .context_compose(context, "Expected Grade",
+                        c("A","B","C","D","F","P","NP","Don't Know"))
+  if (is.null(d)) return(context_empty_plot("Expected grades"))
+  d <- d |> mutate(pct = 100 * count / sum(count))
+  ggplot2::ggplot(d, ggplot2::aes(ANS_TEXT, pct)) +
+    ggplot2::geom_col(fill = viridisLite::viridis(1, begin = 0.4)) +
+    ggplot2::labs(x = "", y = "Percentage", title = "Expected Grade Distribution")
+}
+
+plot_material_usefulness <- function(context) {
+  qs <- c("Usefulness of texts", "Usefulness of homework assignments",
+          "Usefulness of lab assignments", "Usefulness of examinations",
+          "Usefulness of class discussions")
+  d <- .context_compose(context, qs, c("Low","Medium","High"), exclude = "Not Applicable")
+  if (is.null(d)) return(context_empty_plot("Usefulness of course materials"))
+  d <- d |>
+    mutate(material = sub("^Usefulness of ", "", QUES_TEXT)) |>
+    group_by(material) |> mutate(pct = 100 * count / sum(count)) |> ungroup()
+  ggplot2::ggplot(d, ggplot2::aes(material, pct, fill = ANS_TEXT)) +
+    ggplot2::geom_col() + ggplot2::scale_fill_viridis_d() +
+    ggplot2::labs(x = "", y = "Percentage", fill = "Usefulness",
+                  title = "Usefulness of Course Materials (rated students only)") +
+    ggplot2::theme(axis.text.x = ggplot2::element_text(angle = -30, hjust = 0, size = 8))
+}
