@@ -38,7 +38,12 @@ notice, and the rest are processed.
 
 ## What the app produces
 
-Results are organized into four tabs:
+After processing, a summary panel reports how many files, courses, terms, and
+respondents were loaded (and how many files were skipped). If the uploaded XLSX
+files combine more than one instructor, a warning notes that results are
+aggregated across them.
+
+Results are organized into five tabs:
 
 - **Overview**: a summary score for each of the nine instructor questions,
   reported as a top-two-box percentage (the share of rating students who answered
@@ -55,6 +60,10 @@ Results are organized into four tabs:
 - **Reliability**: the number of respondents per course (so small-sample
   percentages can be judged), the response rate per course (available for
   XLSX-sourced courses), and the downloadable course inventory.
+- **Course Context**: questions beyond the instructor, drawn from data present in
+  both export formats: interest in the subject before vs after the course, course
+  difficulty and workload, the expected-grade distribution, and the usefulness of
+  course materials.
 
 The existing stacked charts exclude "Not Applicable" from the rating bars and
 report its share separately. Every chart can be downloaded as a PNG and its
