@@ -150,12 +150,13 @@ server <- function(input, output) {
             return()
         }
 
-        # Read every uploaded file through the ingestion layer into the
-        # canonical long format. Empty/unsupported files are skipped (NULL).
+        # Expand the upload batch (any .zip is extracted) into a work list, then
+        # read each file through the ingestion layer into the canonical schema.
+        work <- expand_uploads(input$csvs$datapath, input$csvs$name)
         full <- NULL
-        for (i in seq_along(input$csvs$datapath)) {
+        for (i in seq_len(nrow(work))) {
             one <- tryCatch(
-                read_soot_file(input$csvs$datapath[i], input$csvs$name[i]),
+                read_soot_file(work$path[i], work$name[i]),
                 error = function(e) { showNotification(conditionMessage(e), type = "error"); NULL }
             )
             if (!is.null(one)) full <- bind_rows(full, one)
