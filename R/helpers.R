@@ -294,3 +294,25 @@ plot_response_rate <- function(data) {
          title = "Response Rate by Course") +
     theme(axis.text.x = element_text(angle = -45, hjust = 0, size = 8))
 }
+
+# Expand an upload batch into a work list of individual SOOT files.
+# Any .zip is extracted (recursively) and its .csv/.xlsx members added; other
+# files pass through. macOS archive cruft (__MACOSX/, ._ files) is ignored.
+# Returns a tibble(path, name) where name is the basename used downstream.
+expand_uploads <- function(paths, names) {
+  out_path <- character(0)
+  out_name <- character(0)
+  for (i in seq_along(paths)) {
+    if (grepl("\\.zip$", names[i], ignore.case = TRUE)) {
+      exdir <- tempfile("unzip_"); dir.create(exdir)
+      tryCatch(utils::unzip(paths[i], exdir = exdir), error = function(e) NULL)
+      inner <- list.files(exdir, pattern = "\\.(csv|xlsx)$", ignore.case = TRUE,
+                          recursive = TRUE, full.names = TRUE)
+      inner <- inner[!grepl("(^|/)(__MACOSX/|\\._)", inner)]
+      for (f in inner) { out_path <- c(out_path, f); out_name <- c(out_name, basename(f)) }
+    } else {
+      out_path <- c(out_path, paths[i]); out_name <- c(out_name, names[i])
+    }
+  }
+  tibble::tibble(path = out_path, name = out_name)
+}
