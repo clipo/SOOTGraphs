@@ -51,6 +51,7 @@ ui <- page_fluid(
             p(class = "text-muted", style = "font-size:0.85em;",
               "Files are processed in your browser session and are not stored on the server.")
         ),
+        uiOutput("upload_summary"),
         navset_card_tab(
             id = "results",
             nav_panel(
@@ -149,16 +150,41 @@ server <- function(input, output) {
         # read each file through the ingestion layer into the canonical schema.
         work <- expand_uploads(input$csvs$datapath, input$csvs$name)
         full <- NULL
+        n_skipped <- 0
         for (i in seq_len(nrow(work))) {
             one <- tryCatch(
                 read_soot_file(work$path[i], work$name[i]),
                 error = function(e) { showNotification(conditionMessage(e), type = "error"); NULL }
             )
-            if (!is.null(one)) full <- bind_rows(full, one)
+            if (!is.null(one)) full <- bind_rows(full, one) else n_skipped <- n_skipped + 1
         }
         if (is.null(full) || nrow(full) == 0) {
             showNotification("No usable data found in the uploaded files.", type = "warning")
             return()
+        }
+
+        # Post-upload summary panel
+        summ <- upload_summary(full, n_uploaded = nrow(work), n_skipped = n_skipped)
+        output$upload_summary <- renderUI({
+            bslib::layout_columns(
+                fill = FALSE,
+                bslib::value_box("Files processed", summ$files_processed, theme = "success"),
+                bslib::value_box("Courses", summ$n_courses, theme = "primary"),
+                bslib::value_box("Terms", summ$n_terms, theme = "primary"),
+                bslib::value_box("Respondents", summ$respondents, theme = "secondary"),
+                bslib::value_box("Files skipped", summ$files_skipped,
+                                 theme = if (summ$files_skipped > 0) "warning" else "light")
+            )
+        })
+
+        # Warn if the uploaded XLSX files combine multiple instructors
+        instructors <- distinct_instructors(full)
+        if (length(instructors) > 1) {
+            showNotification(
+                paste0("These files combine ", length(instructors), " instructors (",
+                       paste(instructors, collapse = ", "),
+                       "). Results are aggregated across all of them."),
+                type = "warning", duration = NULL)
         }
 
         # Aggregate the info by question
