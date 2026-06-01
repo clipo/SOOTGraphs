@@ -4,6 +4,7 @@ library(tidyverse)
 library(purrr)
 library(ggplot2)
 library(viridisLite)
+library(bslib)
 source("R/helpers.R")
 #library("shiny.collections")
 
@@ -20,127 +21,121 @@ source("R/helpers.R")
 #Do not rename the files. Upload all the .csv files at the same time. 
 
 
-ui <- fluidPage(
-    # Application title
-    title = "Harpur College SOOT Processing",
-    # Add header and information
-    h1("Harpur College SOOT Aggregator"),
-    br(),
-    p("This aggregator allows you to upload your raw SOOT (Student Opinion of Teaching) 
-      data to generate results in the form of aggregated graphs and spreadsheets, in 
-      addition to a course inventory. In order to use it, you must first download your SOOT data. Go to this link: "),
-    HTML("<a href='https://my.binghamton.edu/page/ACADEMIC_SERVICES/sootsurveys'>https://my.binghamton.edu/page/ACADEMIC_SERVICES/sootsurveys</a>."), 
-    p("Download the files shown under RESULTS by clicking on the `Download CSV` button for each course. Do not rename the files."), 
-    p("Once you have downloaded all of the CSV files, upload them through the interface below. Finally, click `Process uploaded data` below."), 
-    p("The aggregated graphs will appear. They are available for download as PNG files. The associate spreadsheets may also be downloaded. 
-    Note that these files are not stored or kept on the server and will not be available to you after you close the browser window. No one will have access to them."),
-    p("This script was written by Professor Xingye Qiao of the Department of Mathematics and then modified by Professors Carl Lipo and Nancy Um of the Harpur
-      College Dean's Office for online use."),
-    p(),
-    fluidRow(
-        column(width = 4,
-               fileInput("csvs",
-                         label="Upload SOOT CSV or XLSX files here",
-                         multiple = TRUE)),
-        column(width = 4,
-               br(),
-               actionButton("process", "Process uploaded data")
+ui <- page_fluid(
+    title = "Harpur College SOOT Aggregator",
+    theme = bs_theme(version = 5, primary = "#005A43", success = "#6CC24A"),
+    tags$head(tags$style(HTML("
+      .bu-header { background:#ffffff; display:flex; align-items:center; gap:18px; padding:14px 22px; }
+      .bu-header img { height:54px; }
+      .bu-header .bu-title { color:#005A43; font-weight:700; font-size:1.6rem; margin:0; }
+      .bu-accent { height:6px; background:#005A43; margin-bottom:14px; }
+    "))),
+    div(class = "bu-header",
+        tags$img(src = "BU-logo.png", alt = "Binghamton University"),
+        tags$h1(class = "bu-title", "Harpur College SOOT Aggregator")),
+    div(class = "bu-accent"),
+    layout_sidebar(
+        sidebar = sidebar(
+            width = 360,
+            title = "Upload and process",
+            p("Upload your SOOT results to generate aggregated graphs. The app accepts two
+               formats: the older CSV export (one file per course, already tallied) and the
+               newer XLSX export (one file per course, individual responses). You can mix both."),
+            p("Two ways to upload: select all your individual .csv or .xlsx files at once, or
+               put them together in a single .zip file and upload that one zip. Do not rename
+               the files. Then click Process uploaded data."),
+            fileInput("csvs", label = "SOOT files (.csv, .xlsx, or one .zip)",
+                      multiple = TRUE, accept = c(".csv", ".xlsx", ".zip")),
+            actionButton("process", "Process uploaded data", class = "btn-primary"),
+            downloadButton("downloadReport", "Download full report (PDF)", class = "btn-success"),
+            p(class = "text-muted", style = "font-size:0.85em;",
+              "Files are processed in your browser session and are not stored on the server.")
+        ),
+        navset_card_tab(
+            id = "results",
+            nav_panel(
+                "Overview",
+                card(card_header("Summary Score by Question"),
+                     plotOutput("summary_student_plot"),
+                     div(downloadButton("downloadSummaryStudentPlot", "Plot"),
+                         downloadButton("downloadSummaryStudentData", "Data")),
+                     plotOutput("summary_course_plot"),
+                     div(downloadButton("downloadSummaryCoursePlot", "Plot"),
+                         downloadButton("downloadSummaryCourseData", "Data")),
+                     p("Two summaries of the same ratings are shown. The student-weighted version
+                        pools every student response together, so courses with more respondents have
+                        more influence; it reflects the experience of the average student. The
+                        course-weighted version summarizes each course on its own and then averages
+                        those course summaries equally, so every course counts the same regardless of
+                        size; it reflects the typical course. The two differ when class sizes vary: a
+                        single large course pulls the student-weighted number toward its own ratings,
+                        while the course-weighted number gives a small seminar the same say as a large
+                        lecture.")),
+                card(card_header("Overall Results Aggregated by Question"),
+                     plotOutput("overall_plot"),
+                     div(downloadButton("downloadOverallPlot", "Plot"),
+                         downloadButton("downloadOverallData", "Data")))
+            ),
+            nav_panel(
+                "By Term",
+                card(card_header("Results Aggregated by Term"),
+                     plotOutput("term_plot"),
+                     div(downloadButton("downloadTermPlot", "Plot"),
+                         downloadButton("downloadTermData", "Data"))),
+                card(card_header("Summary Score Trends by Term"),
+                     plotOutput("trend_student_plot", height = "600px"),
+                     div(downloadButton("downloadTrendStudentPlot", "Plot"),
+                         downloadButton("downloadTrendStudentData", "Data")),
+                     plotOutput("trend_course_plot", height = "600px"),
+                     div(downloadButton("downloadTrendCoursePlot", "Plot"),
+                         downloadButton("downloadTrendCourseData", "Data")))
+            ),
+            nav_panel(
+                "By Course",
+                card(card_header("Results Aggregated by Course"),
+                     plotOutput("course_plot"),
+                     div(downloadButton("downloadCoursePlot", "Plot"),
+                         downloadButton("downloadCourseData", "Data"))),
+                card(card_header("Question-by-Course Comparison"),
+                     p("Top-two-box percentage for each question in each course. Use it to see
+                        whether a weaker dimension is specific to one course or consistent across
+                        courses."),
+                     plotOutput("heatmap_plot", height = "500px"),
+                     div(downloadButton("downloadHeatmapPlot", "Plot"),
+                         downloadButton("downloadHeatmapData", "Data")))
+            ),
+            nav_panel(
+                "Reliability",
+                card(card_header("Response Counts by Course"),
+                     p("Number of rating respondents per course. Percentages from courses with few
+                        respondents are less reliable; use this to judge how much weight to give each
+                        bar."),
+                     plotOutput("response_count_plot"),
+                     div(downloadButton("downloadResponseCountPlot", "Plot"),
+                         downloadButton("downloadResponseCountData", "Data"))),
+                card(card_header("Response Rate by Course"),
+                     p("Percentage of enrolled students who responded, available for XLSX-format
+                        uploads (the older CSV export does not include enrollment)."),
+                     plotOutput("response_rate_plot"),
+                     div(downloadButton("downloadResponseRatePlot", "Plot"),
+                         downloadButton("downloadResponseRateData", "Data"))),
+                card(card_header("Course Inventory"),
+                     p("A course inventory with the number of responses for each course. You may add
+                        a column for the overall enrollment to show the response rate for each course."),
+                     div(downloadButton("downloadInventory", "Course Inventory CSV"),
+                         downloadButton("downloadAnswers", "Answers CSV")))
+            )
         )
-    ),
-    h2("Overall Results Aggregated by Question"),
-    fluidRow(
-        # Main panel for displaying outputs ----
-        plotOutput("overall_plot")
-    ),
-    fluidRow(
-        # Button
-        downloadButton("downloadOverallPlot", "Download Overall Plot"),
-        downloadButton("downloadOverallData", "Download Overall Data as CSV")
-    ),
-    h2("Results Aggregated by Term"),
-    fluidRow(
-        # Main panel for displaying outputs ----
-        plotOutput("term_plot")
-    ),
-    fluidRow(
-        downloadButton("downloadTermPlot", "Download Aggregated Term Plot"),
-        downloadButton("downloadTermData", "Download Aggregated Term Data as CSV")
-    ),
-    h2("Results Aggregated by Course"),
-    fluidRow(
-        # Main panel for displaying outputs ----
-        plotOutput("course_plot")
-    ),
-    fluidRow(
-        downloadButton("downloadCoursePlot", "Download Aggregated Course Plot"),
-        downloadButton("downloadCourseData", "Download Aggregated Course Data as CSV")
-    ),
-    h2("Summary Score by Question"),
-    fluidRow(plotOutput("summary_student_plot")),
-    fluidRow(
-        downloadButton("downloadSummaryStudentPlot", "Download Student-Weighted Plot"),
-        downloadButton("downloadSummaryStudentData", "Download Student-Weighted Data")
-    ),
-    fluidRow(plotOutput("summary_course_plot")),
-    fluidRow(
-        downloadButton("downloadSummaryCoursePlot", "Download Course-Weighted Plot"),
-        downloadButton("downloadSummaryCourseData", "Download Course-Weighted Data")
-    ),
-    p("Two summaries of the same ratings are shown. The student-weighted version pools
-      every student response together, so courses with more respondents have more
-      influence; it reflects the experience of the average student. The course-weighted
-      version summarizes each course on its own and then averages those course summaries
-      equally, so every course counts the same regardless of size; it reflects the typical
-      course. The two differ when class sizes vary: a single large course pulls the
-      student-weighted number toward its own ratings, while the course-weighted number
-      gives a small seminar the same say as a large lecture."),
-    h2("Summary Score Trends by Term"),
-    fluidRow(plotOutput("trend_student_plot", height = "600px")),
-    fluidRow(
-        downloadButton("downloadTrendStudentPlot", "Download Student-Weighted Trend"),
-        downloadButton("downloadTrendStudentData", "Download Student-Weighted Trend Data")
-    ),
-    fluidRow(plotOutput("trend_course_plot", height = "600px")),
-    fluidRow(
-        downloadButton("downloadTrendCoursePlot", "Download Course-Weighted Trend"),
-        downloadButton("downloadTrendCourseData", "Download Course-Weighted Trend Data")
-    ),
-    h2("Response Counts by Course"),
-    p("Number of rating respondents per course. Percentages from courses with few
-      respondents are less reliable; use this to judge how much weight to give each bar."),
-    fluidRow(plotOutput("response_count_plot")),
-    fluidRow(
-        downloadButton("downloadResponseCountPlot", "Download Response Count Plot"),
-        downloadButton("downloadResponseCountData", "Download Response Count Data")
-    ),
-    h2("Question-by-Course Comparison"),
-    p("Top-two-box percentage for each question in each course. Use it to see whether a
-      weaker dimension is specific to one course or consistent across courses."),
-    fluidRow(plotOutput("heatmap_plot", height = "500px")),
-    fluidRow(
-        downloadButton("downloadHeatmapPlot", "Download Heatmap"),
-        downloadButton("downloadHeatmapData", "Download Heatmap Data")
-    ),
-    h2("Response Rate by Course"),
-    p("Percentage of enrolled students who responded, available for XLSX-format
-      uploads (the older CSV export does not include enrollment)."),
-    fluidRow(plotOutput("response_rate_plot")),
-    fluidRow(
-        downloadButton("downloadResponseRatePlot", "Download Response Rate Plot"),
-        downloadButton("downloadResponseRateData", "Download Response Rate Data")
-    ),
-    h2("Course Inventory"),
-    p("Generate a course inventory, which includes the number of responses for each course. 
-         You may also want to add a column for the overall enrollment, in order to show the overall response rate for each course."),
-    fluidRow(
-        downloadButton("downloadInventory", "Download Course Inventory as CSV")
-    ),
-    fluidRow(
-        downloadButton("downloadAnswers", "Download Answers as CSV")
     )
 )
 
 server <- function(input, output) {
+    # Default report handler: returns a one-page "no data" PDF if the user clicks
+    # download before processing. Reassigned with the real report after processing.
+    output$downloadReport <- downloadHandler(
+        filename = "SOOT_Report.pdf",
+        content = function(file) { build_report_pdf(file, list(), NULL) }
+    )
     observeEvent(input$process, {
 
         # Guard against the process button being clicked with no files uploaded
@@ -386,8 +381,34 @@ server <- function(input, output) {
             filename = "response_rate_by_course.csv",
             content = function(file) { write.table(response_rate_data, file, sep = ",", row.names = FALSE) })
 
+        output$downloadReport <- downloadHandler(
+            filename = "SOOT_Report.pdf",
+            content = function(file) {
+                report_plots <- list(
+                    "Summary Score by Question (Student-Weighted)" = summary_student_plot,
+                    "Summary Score by Question (Course-Weighted)" = summary_course_plot,
+                    "Overall Results Aggregated by Question" = overall_plot,
+                    "Results Aggregated by Term" = term_plot,
+                    "Summary Trends by Term (Student-Weighted)" = trend_student_plot,
+                    "Summary Trends by Term (Course-Weighted)" = trend_course_plot,
+                    "Results Aggregated by Course" = course_plot,
+                    "Question-by-Course Comparison" = heatmap_plot,
+                    "Response Counts by Course" = response_count_plot,
+                    "Response Rate by Course" = response_rate_plot
+                )
+                report_meta <- list(
+                    courses = sort(unique(instructor_related_ques$course)),
+                    terms = levels(order_terms(unique(instructor_related_ques$term))),
+                    instructor = instructor_related_ques$instructor,
+                    n_courses = length(unique(instructor_related_ques$course)),
+                    date = Sys.Date()
+                )
+                build_report_pdf(file, report_plots, report_meta)
+            }
+        )
+
         #Create a course inventory
-        responses_by_course = ques_count %>% 
+        responses_by_course = ques_count %>%
             group_by(term, course) %>%  
             summarise(response = max(ques_count))
         
