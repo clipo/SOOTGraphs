@@ -259,3 +259,21 @@ test_that("read_context_csv extracts curated questions with their labels", {
   expect_equal(after$count[after$ANS_TEXT == "High"], 19)
   expect_false("Year in School" %in% res$QUES_TEXT)
 })
+
+test_that("read_context_xlsx decodes curated questions to labels and counts", {
+  res <- read_context_xlsx(fixture("TEST101-01_FALL25.xlsx"), "TEST101-01_FALL25.xlsx")
+  expect_true(all(c("course","term","QUES_TEXT","ANS_TEXT","count") %in% names(res)))
+  before <- res[res$QUES_TEXT == "My interest in subject before course", ]
+  expect_equal(before$count[before$ANS_TEXT == "Low"], 2)
+  expect_equal(before$count[before$ANS_TEXT == "Medium"], 2)
+  after <- res[res$QUES_TEXT == "My interest in subject after course", ]
+  expect_equal(after$count[after$ANS_TEXT == "High"], 3)
+  expect_false("Year in School." %in% res$QUES_TEXT)
+})
+
+test_that("read_context_file dispatches on extension", {
+  csvres <- read_context_file(fixture("ANTH243-01_FALL24.csv"), "ANTH243-01_FALL24.csv")
+  expect_true("Difficulty (relative to other courses)" %in% csvres$QUES_TEXT)
+  xres <- read_context_file(fixture("TEST101-01_FALL25.xlsx"), "TEST101-01_FALL25.xlsx")
+  expect_true("My interest in subject after course" %in% xres$QUES_TEXT)
+})

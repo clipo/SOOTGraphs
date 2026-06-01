@@ -431,6 +431,41 @@ context_empty_plot <- function(title) {
     ggplot2::theme_void()
 }
 
+# Read the curated context questions from a per-respondent XLSX, decoding numeric
+# codes to labels via CONTEXT_QUESTIONS. Blank/unmapped codes are dropped.
+read_context_xlsx <- function(path, name) {
+  raw <- tryCatch(readxl::read_excel(path, sheet = "RawData"), error = function(e) NULL)
+  mapper <- tryCatch(readxl::read_excel(path, sheet = "QuestionMapper"), error = function(e) NULL)
+  if (is.null(raw) || is.null(mapper) || nrow(raw) == 0) return(NULL)
+  ct <- parse_course_term(name)
+  qmap <- tibble::tibble(col = mapper[[1]],
+                         QUES_TEXT = strip_question_prefix(mapper[[2]])) |>
+    filter(QUES_TEXT %in% CONTEXT_TEXTS, col %in% names(raw))
+  if (nrow(qmap) == 0) return(NULL)
+  out <- list()
+  for (k in seq_len(nrow(qmap))) {
+    qtext <- qmap$QUES_TEXT[k]
+    codes <- CONTEXT_QUESTIONS[[which(CONTEXT_TEXTS == qtext)[1]]]$codes
+    vals <- trimws(as.character(raw[[qmap$col[k]]]))
+    vals <- vals[!is.na(vals) & vals %in% names(codes)]
+    if (length(vals) == 0) next
+    tab <- as.data.frame(table(ANS_TEXT = unname(codes[vals])), stringsAsFactors = FALSE)
+    out[[length(out) + 1]] <- tibble::tibble(
+      course = ct$course, term = ct$term, QUES_TEXT = qtext,
+      ANS_TEXT = tab$ANS_TEXT, count = as.integer(tab$Freq))
+  }
+  if (length(out) == 0) return(NULL)
+  dplyr::bind_rows(out)
+}
+
+# Dispatch context reading on file extension.
+read_context_file <- function(path, name) {
+  ext <- tolower(tools::file_ext(name))
+  if (ext == "csv") read_context_csv(path, name)
+  else if (ext %in% c("xlsx", "xls")) read_context_xlsx(path, name)
+  else NULL
+}
+
 # Read the curated context questions from a CSV (labels already present).
 read_context_csv <- function(path, name) {
   raw <- tryCatch(read.csv(path, header = TRUE, stringsAsFactors = FALSE),
