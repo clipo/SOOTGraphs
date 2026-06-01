@@ -3,3 +3,6 @@
 sample-data/
 .Rproj.user/
 .Rhistory
+.playwright-mcp/
+soot-redesign-*.png
+rsconnect/

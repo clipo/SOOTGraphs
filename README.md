@@ -22,3 +22,11 @@ chronologically.
 The app now accepts both the older aggregate CSV export and the newer
 per-respondent XLSX export, and both produce the same graphs. XLSX uploads
 additionally enable the response-rate-by-course chart.
+
+## Interface
+
+The app uses a Binghamton University branded interface with the results organized
+into tabs (Overview, By Term, By Course, Reliability). You can upload your SOOT
+files two ways: select the individual .csv or .xlsx files, or place them all in a
+single .zip file and upload that one zip. A "Download full report (PDF)" button
+produces a print-ready, multi-page report with a cover page and every chart.
