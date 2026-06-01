@@ -277,3 +277,17 @@ test_that("read_context_file dispatches on extension", {
   xres <- read_context_file(fixture("TEST101-01_FALL25.xlsx"), "TEST101-01_FALL25.xlsx")
   expect_true("My interest in subject after course" %in% xres$QUES_TEXT)
 })
+
+test_that("read_context_xlsx matches the real sample mapper text with trailing periods (skipped if absent)", {
+  zip <- file.path("..", "..", "sample-data", "sample-data.zip")
+  skip_if_not(file.exists(zip), "sample-data.zip not present")
+  tmp <- tempfile(); dir.create(tmp); utils::unzip(zip, exdir = tmp)
+  xlsx <- list.files(file.path(tmp, "SOOTs"), pattern = "[.]xlsx$", full.names = TRUE)
+  skip_if(length(xlsx) == 0, "no sample XLSX")
+  res <- read_context_xlsx(xlsx[1], basename(xlsx[1]))
+  expect_false(is.null(res))
+  expect_gt(nrow(res), 0)
+  # the real mapper text carries trailing periods; matching must still find these
+  expect_true("My interest in subject after course" %in% res$QUES_TEXT)
+  expect_true("Expected Grade" %in% res$QUES_TEXT)
+})

@@ -11,8 +11,8 @@ mapper <- data.frame(
     "[InstructorName]-Instructor Effectiveness and Teaching Practices - The instructor is well prepared for class.",
     "[InstructorName]-Instructor Effectiveness and Teaching Practices - Overall, the instructor is an effective teacher.",
     "Year in School.",
-    "Course Interest and Demands - My interest in subject before course",
-    "Course Interest and Demands - My interest in subject after course"
+    "Course Interest and Demands - My interest in subject before course.",
+    "Course Interest and Demands - My interest in subject after course."
   ),
   check.names = FALSE, stringsAsFactors = FALSE
 )

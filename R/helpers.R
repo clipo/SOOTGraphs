@@ -439,7 +439,7 @@ read_context_xlsx <- function(path, name) {
   if (is.null(raw) || is.null(mapper) || nrow(raw) == 0) return(NULL)
   ct <- parse_course_term(name)
   qmap <- tibble::tibble(col = mapper[[1]],
-                         QUES_TEXT = strip_question_prefix(mapper[[2]])) |>
+                         QUES_TEXT = sub("[.]$", "", strip_question_prefix(mapper[[2]]))) |>
     filter(QUES_TEXT %in% CONTEXT_TEXTS, col %in% names(raw))
   if (nrow(qmap) == 0) return(NULL)
   out <- list()
