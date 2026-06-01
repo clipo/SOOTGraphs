@@ -202,3 +202,29 @@ test_that("expand_uploads handles a mixed loose-file + zip batch", {
   res <- expand_uploads(c("/tmp/loose.csv", zpath), c("loose.csv", "bundle.zip"))
   expect_setequal(res$name, c("loose.csv", "ANTH243-01_FALL19.csv"))
 })
+
+test_that("build_report_pdf writes a multi-page PDF: cover + one page per chart", {
+  library(ggplot2)
+  plots <- list(
+    "Chart One" = ggplot(mtcars, aes(mpg, wt)) + geom_point(),
+    "Chart Two" = ggplot(mtcars, aes(hp, qsec)) + geom_point()
+  )
+  meta <- list(courses = c("ANTH243","ANTH482C"), terms = c("FALL24","SPG25"),
+               instructor = "Test Instructor", n_courses = 2, date = as.Date("2026-05-31"))
+  f <- tempfile(fileext = ".pdf")
+  build_report_pdf(f, plots, meta)
+  expect_true(file.exists(f))
+  expect_gt(file.info(f)$size, 0)
+  if (requireNamespace("pdftools", quietly = TRUE)) {
+    expect_equal(pdftools::pdf_info(f)$pages, 3)
+  }
+})
+
+test_that("build_report_pdf writes a one-page placeholder when there is no data", {
+  f <- tempfile(fileext = ".pdf")
+  build_report_pdf(f, list(), NULL)
+  expect_true(file.exists(f))
+  if (requireNamespace("pdftools", quietly = TRUE)) {
+    expect_equal(pdftools::pdf_info(f)$pages, 1)
+  }
+})
