@@ -228,3 +228,23 @@ test_that("build_report_pdf writes a one-page placeholder when there is no data"
     expect_equal(pdftools::pdf_info(f)$pages, 1)
   }
 })
+
+test_that("upload_summary counts files, courses, terms, and respondents", {
+  full <- tibble::tibble(
+    course = c("A","A","B"), term = c("FALL24","FALL24","SPG25"),
+    QUES_TEXT = "Q", ANS_TEXT = "High", ANS_COUNT = c(10, 5, 8),
+    instructor = NA_character_
+  )
+  s <- upload_summary(full, n_uploaded = 4, n_skipped = 1)
+  expect_equal(s$files_processed, 3)
+  expect_equal(s$files_skipped, 1)
+  expect_equal(s$n_courses, 2)
+  expect_equal(s$n_terms, 2)
+  expect_equal(s$respondents, 23)
+})
+
+test_that("distinct_instructors returns non-NA unique names", {
+  full <- tibble::tibble(instructor = c("Smith","Smith", NA, "Jones"))
+  expect_setequal(distinct_instructors(full), c("Smith","Jones"))
+  expect_length(distinct_instructors(tibble::tibble(instructor = c(NA_character_, NA))), 0)
+})

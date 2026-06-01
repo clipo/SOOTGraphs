@@ -362,3 +362,25 @@ build_report_pdf <- function(file, plots, meta, logo_path = "www/BU-logo.png") {
   }
   invisible(file)
 }
+
+# Summary statistics for the post-upload confirmation panel.
+upload_summary <- function(full, n_uploaded, n_skipped) {
+  resp <- full |>
+    group_by(course, term, QUES_TEXT) |>
+    summarise(n = sum(ANS_COUNT), .groups = "drop") |>
+    group_by(course, term) |>
+    summarise(respondents = max(n), .groups = "drop")
+  list(
+    files_processed = n_uploaded - n_skipped,
+    files_skipped   = n_skipped,
+    n_courses       = length(unique(full$course)),
+    n_terms         = length(unique(full$term)),
+    respondents     = sum(resp$respondents)
+  )
+}
+
+# Distinct non-missing instructor names present in the data (XLSX-sourced).
+distinct_instructors <- function(full) {
+  ins <- unique(full$instructor)
+  ins[!is.na(ins)]
+}
