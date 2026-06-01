@@ -1,7 +1,5 @@
 library(shiny)
-library(data.table)
 library(tidyverse)
-library(purrr)
 library(ggplot2)
 library(viridisLite)
 library(bslib)
@@ -24,7 +22,9 @@ source("R/helpers.R")
 ui <- page_fluid(
     title = "Harpur College SOOT Aggregator",
     theme = bs_theme(version = 5, primary = "#005A43", success = "#6CC24A"),
-    tags$head(tags$style(HTML("
+    tags$head(
+      tags$link(rel = "icon", href = "BU-logo.png"),
+      tags$style(HTML("
       .bu-header { background:#ffffff; display:flex; align-items:center; gap:18px; padding:14px 22px; }
       .bu-header img { height:54px; }
       .bu-header .bu-title { color:#005A43; font-weight:700; font-size:1.6rem; margin:0; }
