@@ -384,3 +384,62 @@ distinct_instructors <- function(full) {
   ins <- unique(full$instructor)
   ins[!is.na(ins)]
 }
+
+# Curated course-context questions: canonical CSV text, chart label order, group,
+# and the XLSX numeric-code-to-label map (validated against the CSV label
+# vocabulary; the Expected Grade letter map is an explicit inference).
+CONTEXT_QUESTIONS <- list(
+  list(text = "My interest in subject before course", group = "interest",
+       labels = c("Low","Medium","High"),
+       codes = c(`1`="Low", `2`="Medium", `3`="High")),
+  list(text = "My interest in subject after course", group = "interest",
+       labels = c("Low","Medium","High"),
+       codes = c(`1`="Low", `2`="Medium", `3`="High")),
+  list(text = "Difficulty (relative to other courses)", group = "demands",
+       labels = c("Low","Medium","High"),
+       codes = c(`1`="Low", `2`="Medium", `3`="High")),
+  list(text = "Workload (relative to other courses)", group = "demands",
+       labels = c("Low","Medium","High"),
+       codes = c(`1`="Low", `2`="Medium", `3`="High")),
+  list(text = "Usefulness of texts", group = "usefulness",
+       labels = c("Low","Medium","High"),
+       codes = c(`0`="Not Applicable", `1`="Low", `2`="Medium", `3`="High")),
+  list(text = "Usefulness of homework assignments", group = "usefulness",
+       labels = c("Low","Medium","High"),
+       codes = c(`0`="Not Applicable", `1`="Low", `2`="Medium", `3`="High")),
+  list(text = "Usefulness of lab assignments", group = "usefulness",
+       labels = c("Low","Medium","High"),
+       codes = c(`0`="Not Applicable", `1`="Low", `2`="Medium", `3`="High")),
+  list(text = "Usefulness of examinations", group = "usefulness",
+       labels = c("Low","Medium","High"),
+       codes = c(`0`="Not Applicable", `1`="Low", `2`="Medium", `3`="High")),
+  list(text = "Usefulness of class discussions", group = "usefulness",
+       labels = c("Low","Medium","High"),
+       codes = c(`0`="Not Applicable", `1`="Low", `2`="Medium", `3`="High")),
+  list(text = "Expected Grade", group = "grade",
+       labels = c("A","B","C","D","F","P","NP","Don't Know"),
+       codes = c(`1`="A", `2`="B", `3`="C", `4`="D", `5`="F", `6`="P", `7`="NP", `8`="Don't Know"))
+)
+
+CONTEXT_TEXTS <- vapply(CONTEXT_QUESTIONS, `[[`, character(1), "text")
+
+# A labeled empty-state placeholder for a context chart with no data.
+context_empty_plot <- function(title) {
+  ggplot2::ggplot() +
+    ggplot2::annotate("text", x = 1, y = 1,
+                      label = paste0(title, "\n(no data in the uploaded files)")) +
+    ggplot2::theme_void()
+}
+
+# Read the curated context questions from a CSV (labels already present).
+read_context_csv <- function(path, name) {
+  raw <- tryCatch(read.csv(path, header = TRUE, stringsAsFactors = FALSE),
+                  error = function(e) NULL)
+  if (is.null(raw) || nrow(raw) == 0) return(NULL)
+  ct <- parse_course_term(name)
+  raw |>
+    filter(QUES_TEXT %in% CONTEXT_TEXTS, ANS_COUNT > 0) |>
+    transmute(course = ct$course, term = ct$term, QUES_TEXT,
+              ANS_TEXT = as.character(ANS_TEXT), count = as.integer(ANS_COUNT)) |>
+    tibble::as_tibble()
+}

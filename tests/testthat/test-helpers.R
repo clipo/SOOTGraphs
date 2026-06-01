@@ -248,3 +248,14 @@ test_that("distinct_instructors returns non-NA unique names", {
   expect_setequal(distinct_instructors(full), c("Smith","Jones"))
   expect_length(distinct_instructors(tibble::tibble(instructor = c(NA_character_, NA))), 0)
 })
+
+test_that("read_context_csv extracts curated questions with their labels", {
+  res <- read_context_csv(fixture("ANTH243-01_FALL24.csv"), "ANTH243-01_FALL24.csv")
+  expect_true(all(c("course","term","QUES_TEXT","ANS_TEXT","count") %in% names(res)))
+  diff <- res[res$QUES_TEXT == "Difficulty (relative to other courses)", ]
+  expect_setequal(diff$ANS_TEXT, c("Low","Medium"))
+  expect_equal(sum(diff$count), 38)
+  after <- res[res$QUES_TEXT == "My interest in subject after course", ]
+  expect_equal(after$count[after$ANS_TEXT == "High"], 19)
+  expect_false("Year in School" %in% res$QUES_TEXT)
+})
