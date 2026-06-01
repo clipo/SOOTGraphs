@@ -3,13 +3,16 @@
 #   Rscript make_xlsx_fixture.R
 library(writexl)
 
-# Two instructor questions plus one non-instructor question that must be ignored.
+# Two instructor questions plus one non-instructor question that must be ignored,
+# plus two context questions (interest before/after course).
 mapper <- data.frame(
-  Column = c("Question 1", "Question 2", "Question 3"),
+  Column = c("Question 1", "Question 2", "Question 3", "Question 4", "Question 5"),
   Question = c(
     "[InstructorName]-Instructor Effectiveness and Teaching Practices - The instructor is well prepared for class.",
     "[InstructorName]-Instructor Effectiveness and Teaching Practices - Overall, the instructor is an effective teacher.",
-    "Year in School."
+    "Year in School.",
+    "Course Interest and Demands - My interest in subject before course.",
+    "Course Interest and Demands - My interest in subject after course."
   ),
   check.names = FALSE, stringsAsFactors = FALSE
 )
@@ -24,6 +27,8 @@ raw <- data.frame(
   "Question 1" = c("5", "4", "4", ""),     # VeryHigh, High, High, no-response
   "Question 2" = c("5", "3", "0", "2"),    # VeryHigh, Average, NotApplicable, Low
   "Question 3" = c("2", "3", "4", "1"),    # Year in School - must be ignored
+  "Question 4" = c("1", "1", "2", "2"),    # before: Low, Low, Medium, Medium
+  "Question 5" = c("3", "3", "2", "3"),    # after:  High, High, Medium, High
   check.names = FALSE, stringsAsFactors = FALSE
 )
 

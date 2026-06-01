@@ -1,7 +1,5 @@
 library(shiny)
-library(data.table)
 library(tidyverse)
-library(purrr)
 library(ggplot2)
 library(viridisLite)
 library(bslib)
@@ -24,7 +22,9 @@ source("R/helpers.R")
 ui <- page_fluid(
     title = "Harpur College SOOT Aggregator",
     theme = bs_theme(version = 5, primary = "#005A43", success = "#6CC24A"),
-    tags$head(tags$style(HTML("
+    tags$head(
+      tags$link(rel = "icon", href = "BU-logo.png"),
+      tags$style(HTML("
       .bu-header { background:#ffffff; display:flex; align-items:center; gap:18px; padding:14px 22px; }
       .bu-header img { height:54px; }
       .bu-header .bu-title { color:#005A43; font-weight:700; font-size:1.6rem; margin:0; }
@@ -51,6 +51,7 @@ ui <- page_fluid(
             p(class = "text-muted", style = "font-size:0.85em;",
               "Files are processed in your browser session and are not stored on the server.")
         ),
+        uiOutput("upload_summary"),
         navset_card_tab(
             id = "results",
             nav_panel(
@@ -125,6 +126,26 @@ ui <- page_fluid(
                      div(downloadButton("downloadInventory", "Course Inventory CSV"),
                          downloadButton("downloadAnswers", "Answers CSV")))
             )
+            ,
+            nav_panel(
+                "Course Context",
+                card(card_header("Interest in the Subject, Before vs After"),
+                     plotOutput("interest_plot"),
+                     div(downloadButton("downloadInterestPlot", "Plot"),
+                         downloadButton("downloadInterestData", "Data"))),
+                card(card_header("Course Demands"),
+                     plotOutput("demands_plot"),
+                     div(downloadButton("downloadDemandsPlot", "Plot"),
+                         downloadButton("downloadDemandsData", "Data"))),
+                card(card_header("Expected Grades"),
+                     plotOutput("grade_plot"),
+                     div(downloadButton("downloadGradePlot", "Plot"),
+                         downloadButton("downloadGradeData", "Data"))),
+                card(card_header("Usefulness of Course Materials"),
+                     plotOutput("usefulness_plot"),
+                     div(downloadButton("downloadUsefulnessPlot", "Plot"),
+                         downloadButton("downloadUsefulnessData", "Data")))
+            )
         )
     )
 )
@@ -149,16 +170,41 @@ server <- function(input, output) {
         # read each file through the ingestion layer into the canonical schema.
         work <- expand_uploads(input$csvs$datapath, input$csvs$name)
         full <- NULL
+        n_skipped <- 0
         for (i in seq_len(nrow(work))) {
             one <- tryCatch(
                 read_soot_file(work$path[i], work$name[i]),
                 error = function(e) { showNotification(conditionMessage(e), type = "error"); NULL }
             )
-            if (!is.null(one)) full <- bind_rows(full, one)
+            if (!is.null(one)) full <- bind_rows(full, one) else n_skipped <- n_skipped + 1
         }
         if (is.null(full) || nrow(full) == 0) {
             showNotification("No usable data found in the uploaded files.", type = "warning")
             return()
+        }
+
+        # Post-upload summary panel
+        summ <- upload_summary(full, n_uploaded = nrow(work), n_skipped = n_skipped)
+        output$upload_summary <- renderUI({
+            bslib::layout_columns(
+                fill = FALSE,
+                bslib::value_box("Files processed", summ$files_processed, theme = "success"),
+                bslib::value_box("Courses", summ$n_courses, theme = "primary"),
+                bslib::value_box("Terms", summ$n_terms, theme = "primary"),
+                bslib::value_box("Respondents", summ$respondents, theme = "secondary"),
+                bslib::value_box("Files skipped", summ$files_skipped,
+                                 theme = if (summ$files_skipped > 0) "warning" else "light")
+            )
+        })
+
+        # Warn if the uploaded XLSX files combine multiple instructors
+        instructors <- distinct_instructors(full)
+        if (length(instructors) > 1) {
+            showNotification(
+                paste0("These files combine ", length(instructors), " instructors (",
+                       paste(instructors, collapse = ", "),
+                       "). Results are aggregated across all of them."),
+                type = "warning", duration = NULL)
         }
 
         # Aggregate the info by question
@@ -381,6 +427,45 @@ server <- function(input, output) {
             filename = "response_rate_by_course.csv",
             content = function(file) { write.table(response_rate_data, file, sep = ",", row.names = FALSE) })
 
+        # Second pass: read the curated course-context questions from the same files.
+        context_full <- NULL
+        for (i in seq_len(nrow(work))) {
+            cone <- tryCatch(read_context_file(work$path[i], work$name[i]), error = function(e) NULL)
+            if (!is.null(cone)) context_full <- bind_rows(context_full, cone)
+        }
+        interest_plot   <- plot_interest_shift(context_full)
+        demands_plot    <- plot_course_demands(context_full)
+        grade_plot      <- plot_expected_grade(context_full)
+        usefulness_plot <- plot_material_usefulness(context_full)
+
+        output$interest_plot   <- renderPlot({ interest_plot })
+        output$demands_plot    <- renderPlot({ demands_plot })
+        output$grade_plot      <- renderPlot({ grade_plot })
+        output$usefulness_plot <- renderPlot({ usefulness_plot })
+
+        ctx_dl <- function(qs) function(file) {
+            d <- if (is.null(context_full)) data.frame() else context_full[context_full$QUES_TEXT %in% qs, ]
+            write.table(d, file, sep = ",", row.names = FALSE)
+        }
+        output$downloadInterestPlot <- downloadHandler("InterestBeforeAfter.png",
+            content = function(file) ggsave(file, interest_plot, width = 7, height = 5, dpi = 300))
+        output$downloadDemandsPlot <- downloadHandler("CourseDemands.png",
+            content = function(file) ggsave(file, demands_plot, width = 7, height = 5, dpi = 300))
+        output$downloadGradePlot <- downloadHandler("ExpectedGrades.png",
+            content = function(file) ggsave(file, grade_plot, width = 7, height = 5, dpi = 300))
+        output$downloadUsefulnessPlot <- downloadHandler("MaterialUsefulness.png",
+            content = function(file) ggsave(file, usefulness_plot, width = 7, height = 5, dpi = 300))
+        output$downloadInterestData <- downloadHandler("interest_before_after.csv",
+            content = ctx_dl(c("My interest in subject before course","My interest in subject after course")))
+        output$downloadDemandsData <- downloadHandler("course_demands.csv",
+            content = ctx_dl(c("Difficulty (relative to other courses)","Workload (relative to other courses)")))
+        output$downloadGradeData <- downloadHandler("expected_grades.csv",
+            content = ctx_dl("Expected Grade"))
+        output$downloadUsefulnessData <- downloadHandler("material_usefulness.csv",
+            content = ctx_dl(c("Usefulness of texts","Usefulness of homework assignments",
+                               "Usefulness of lab assignments","Usefulness of examinations",
+                               "Usefulness of class discussions")))
+
         output$downloadReport <- downloadHandler(
             filename = "SOOT_Report.pdf",
             content = function(file) {
@@ -395,6 +480,11 @@ server <- function(input, output) {
                     "Question-by-Course Comparison" = heatmap_plot,
                     "Response Counts by Course" = response_count_plot,
                     "Response Rate by Course" = response_rate_plot
+                    ,
+                    "Interest Before vs After" = interest_plot,
+                    "Course Demands" = demands_plot,
+                    "Expected Grades" = grade_plot,
+                    "Usefulness of Course Materials" = usefulness_plot
                 )
                 report_meta <- list(
                     courses = sort(unique(instructor_related_ques$course)),

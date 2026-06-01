@@ -362,3 +362,189 @@ build_report_pdf <- function(file, plots, meta, logo_path = "www/BU-logo.png") {
   }
   invisible(file)
 }
+
+# Summary statistics for the post-upload confirmation panel.
+upload_summary <- function(full, n_uploaded, n_skipped) {
+  resp <- full |>
+    group_by(course, term, QUES_TEXT) |>
+    summarise(n = sum(ANS_COUNT), .groups = "drop") |>
+    group_by(course, term) |>
+    summarise(respondents = max(n), .groups = "drop")
+  list(
+    files_processed = n_uploaded - n_skipped,
+    files_skipped   = n_skipped,
+    n_courses       = length(unique(full$course)),
+    n_terms         = length(unique(full$term)),
+    respondents     = sum(resp$respondents)
+  )
+}
+
+# Distinct non-missing instructor names present in the data (XLSX-sourced).
+distinct_instructors <- function(full) {
+  ins <- unique(full$instructor)
+  ins[!is.na(ins)]
+}
+
+# Curated course-context questions: canonical CSV text, chart label order, group,
+# and the XLSX numeric-code-to-label map (validated against the CSV label
+# vocabulary; the Expected Grade letter map is an explicit inference).
+CONTEXT_QUESTIONS <- list(
+  list(text = "My interest in subject before course", group = "interest",
+       labels = c("Low","Medium","High"),
+       codes = c(`1`="Low", `2`="Medium", `3`="High")),
+  list(text = "My interest in subject after course", group = "interest",
+       labels = c("Low","Medium","High"),
+       codes = c(`1`="Low", `2`="Medium", `3`="High")),
+  list(text = "Difficulty (relative to other courses)", group = "demands",
+       labels = c("Low","Medium","High"),
+       codes = c(`1`="Low", `2`="Medium", `3`="High")),
+  list(text = "Workload (relative to other courses)", group = "demands",
+       labels = c("Low","Medium","High"),
+       codes = c(`1`="Low", `2`="Medium", `3`="High")),
+  list(text = "Usefulness of texts", group = "usefulness",
+       labels = c("Low","Medium","High"),
+       codes = c(`0`="Not Applicable", `1`="Low", `2`="Medium", `3`="High")),
+  list(text = "Usefulness of homework assignments", group = "usefulness",
+       labels = c("Low","Medium","High"),
+       codes = c(`0`="Not Applicable", `1`="Low", `2`="Medium", `3`="High")),
+  list(text = "Usefulness of lab assignments", group = "usefulness",
+       labels = c("Low","Medium","High"),
+       codes = c(`0`="Not Applicable", `1`="Low", `2`="Medium", `3`="High")),
+  list(text = "Usefulness of examinations", group = "usefulness",
+       labels = c("Low","Medium","High"),
+       codes = c(`0`="Not Applicable", `1`="Low", `2`="Medium", `3`="High")),
+  list(text = "Usefulness of class discussions", group = "usefulness",
+       labels = c("Low","Medium","High"),
+       codes = c(`0`="Not Applicable", `1`="Low", `2`="Medium", `3`="High")),
+  list(text = "Expected Grade", group = "grade",
+       labels = c("A","B","C","D","F","P","NP","Don't Know"),
+       codes = c(`1`="A", `2`="B", `3`="C", `4`="D", `5`="F", `6`="P", `7`="NP", `8`="Don't Know"))
+)
+
+CONTEXT_TEXTS <- vapply(CONTEXT_QUESTIONS, `[[`, character(1), "text")
+
+# A labeled empty-state placeholder for a context chart with no data.
+context_empty_plot <- function(title) {
+  ggplot2::ggplot() +
+    ggplot2::annotate("text", x = 1, y = 1,
+                      label = paste0(title, "\n(no data in the uploaded files)")) +
+    ggplot2::theme_void()
+}
+
+# Read the curated context questions from a per-respondent XLSX, decoding numeric
+# codes to labels via CONTEXT_QUESTIONS. Blank/unmapped codes are dropped.
+read_context_xlsx <- function(path, name) {
+  raw <- tryCatch(readxl::read_excel(path, sheet = "RawData"), error = function(e) NULL)
+  mapper <- tryCatch(readxl::read_excel(path, sheet = "QuestionMapper"), error = function(e) NULL)
+  if (is.null(raw) || is.null(mapper) || nrow(raw) == 0) return(NULL)
+  ct <- parse_course_term(name)
+  qmap <- tibble::tibble(col = mapper[[1]],
+                         QUES_TEXT = sub("[.]$", "", strip_question_prefix(mapper[[2]]))) |>
+    filter(QUES_TEXT %in% CONTEXT_TEXTS, col %in% names(raw))
+  if (nrow(qmap) == 0) return(NULL)
+  out <- list()
+  for (k in seq_len(nrow(qmap))) {
+    qtext <- qmap$QUES_TEXT[k]
+    codes <- CONTEXT_QUESTIONS[[which(CONTEXT_TEXTS == qtext)[1]]]$codes
+    vals <- trimws(as.character(raw[[qmap$col[k]]]))
+    vals <- vals[!is.na(vals) & vals %in% names(codes)]
+    if (length(vals) == 0) next
+    tab <- as.data.frame(table(ANS_TEXT = unname(codes[vals])), stringsAsFactors = FALSE)
+    out[[length(out) + 1]] <- tibble::tibble(
+      course = ct$course, term = ct$term, QUES_TEXT = qtext,
+      ANS_TEXT = tab$ANS_TEXT, count = as.integer(tab$Freq))
+  }
+  if (length(out) == 0) return(NULL)
+  dplyr::bind_rows(out)
+}
+
+# Dispatch context reading on file extension.
+read_context_file <- function(path, name) {
+  ext <- tolower(tools::file_ext(name))
+  if (ext == "csv") read_context_csv(path, name)
+  else if (ext %in% c("xlsx", "xls")) read_context_xlsx(path, name)
+  else NULL
+}
+
+# Read the curated context questions from a CSV (labels already present).
+read_context_csv <- function(path, name) {
+  raw <- tryCatch(read.csv(path, header = TRUE, stringsAsFactors = FALSE),
+                  error = function(e) NULL)
+  if (is.null(raw) || nrow(raw) == 0) return(NULL)
+  ct <- parse_course_term(name)
+  raw |>
+    filter(QUES_TEXT %in% CONTEXT_TEXTS, ANS_COUNT > 0) |>
+    transmute(course = ct$course, term = ct$term, QUES_TEXT,
+              ANS_TEXT = as.character(ANS_TEXT), count = as.integer(ANS_COUNT)) |>
+    tibble::as_tibble()
+}
+
+# Internal: pool counts for a set of questions into a percentage composition,
+# with ANS_TEXT ordered by `levels`. Returns NULL if no rows.
+.context_compose <- function(context, questions, levels, exclude = character(0)) {
+  if (is.null(context)) return(NULL)
+  d <- context |>
+    filter(QUES_TEXT %in% questions, !ANS_TEXT %in% exclude)
+  if (nrow(d) == 0) return(NULL)
+  d |>
+    group_by(QUES_TEXT, ANS_TEXT) |>
+    summarise(count = sum(count), .groups = "drop") |>
+    mutate(ANS_TEXT = factor(ANS_TEXT, levels = levels))
+}
+
+plot_interest_shift <- function(context) {
+  qs <- c("My interest in subject before course", "My interest in subject after course")
+  d <- .context_compose(context, qs, c("Low","Medium","High"))
+  if (is.null(d)) return(context_empty_plot("Interest before vs after"))
+  d <- d |>
+    mutate(phase = factor(ifelse(grepl("before", QUES_TEXT), "Before", "After"),
+                          levels = c("Before","After"))) |>
+    group_by(phase) |> mutate(pct = 100 * count / sum(count)) |> ungroup()
+  hi <- d |> filter(ANS_TEXT == "High")
+  delta <- round(sum(hi$pct[hi$phase == "After"]) - sum(hi$pct[hi$phase == "Before"]), 0)
+  ggplot2::ggplot(d, ggplot2::aes(phase, pct, fill = ANS_TEXT)) +
+    ggplot2::geom_col() + ggplot2::scale_fill_viridis_d() +
+    ggplot2::labs(x = "", y = "Percentage", fill = "Interest",
+                  title = "Interest in the Subject, Before vs After",
+                  subtitle = sprintf("Change in share at High interest: %+d points", delta))
+}
+
+plot_course_demands <- function(context) {
+  qs <- c("Difficulty (relative to other courses)", "Workload (relative to other courses)")
+  d <- .context_compose(context, qs, c("Low","Medium","High"))
+  if (is.null(d)) return(context_empty_plot("Course demands"))
+  d <- d |>
+    mutate(item = factor(ifelse(grepl("Difficulty", QUES_TEXT), "Difficulty", "Workload"),
+                         levels = c("Difficulty","Workload"))) |>
+    group_by(item) |> mutate(pct = 100 * count / sum(count)) |> ungroup()
+  ggplot2::ggplot(d, ggplot2::aes(item, pct, fill = ANS_TEXT)) +
+    ggplot2::geom_col() + ggplot2::scale_fill_viridis_d() +
+    ggplot2::labs(x = "", y = "Percentage", fill = "Relative to other courses",
+                  title = "Course Demands: Difficulty and Workload")
+}
+
+plot_expected_grade <- function(context) {
+  d <- .context_compose(context, "Expected Grade",
+                        c("A","B","C","D","F","P","NP","Don't Know"))
+  if (is.null(d)) return(context_empty_plot("Expected grades"))
+  d <- d |> mutate(pct = 100 * count / sum(count))
+  ggplot2::ggplot(d, ggplot2::aes(ANS_TEXT, pct)) +
+    ggplot2::geom_col(fill = viridisLite::viridis(1, begin = 0.4)) +
+    ggplot2::labs(x = "", y = "Percentage", title = "Expected Grade Distribution")
+}
+
+plot_material_usefulness <- function(context) {
+  qs <- c("Usefulness of texts", "Usefulness of homework assignments",
+          "Usefulness of lab assignments", "Usefulness of examinations",
+          "Usefulness of class discussions")
+  d <- .context_compose(context, qs, c("Low","Medium","High"), exclude = "Not Applicable")
+  if (is.null(d)) return(context_empty_plot("Usefulness of course materials"))
+  d <- d |>
+    mutate(material = sub("^Usefulness of ", "", QUES_TEXT)) |>
+    group_by(material) |> mutate(pct = 100 * count / sum(count)) |> ungroup()
+  ggplot2::ggplot(d, ggplot2::aes(material, pct, fill = ANS_TEXT)) +
+    ggplot2::geom_col() + ggplot2::scale_fill_viridis_d() +
+    ggplot2::labs(x = "", y = "Percentage", fill = "Usefulness",
+                  title = "Usefulness of Course Materials (rated students only)") +
+    ggplot2::theme(axis.text.x = ggplot2::element_text(angle = -30, hjust = 0, size = 8))
+}

@@ -228,3 +228,79 @@ test_that("build_report_pdf writes a one-page placeholder when there is no data"
     expect_equal(pdftools::pdf_info(f)$pages, 1)
   }
 })
+
+test_that("upload_summary counts files, courses, terms, and respondents", {
+  full <- tibble::tibble(
+    course = c("A","A","B"), term = c("FALL24","FALL24","SPG25"),
+    QUES_TEXT = "Q", ANS_TEXT = "High", ANS_COUNT = c(10, 5, 8),
+    instructor = NA_character_
+  )
+  s <- upload_summary(full, n_uploaded = 4, n_skipped = 1)
+  expect_equal(s$files_processed, 3)
+  expect_equal(s$files_skipped, 1)
+  expect_equal(s$n_courses, 2)
+  expect_equal(s$n_terms, 2)
+  expect_equal(s$respondents, 23)
+})
+
+test_that("distinct_instructors returns non-NA unique names", {
+  full <- tibble::tibble(instructor = c("Smith","Smith", NA, "Jones"))
+  expect_setequal(distinct_instructors(full), c("Smith","Jones"))
+  expect_length(distinct_instructors(tibble::tibble(instructor = c(NA_character_, NA))), 0)
+})
+
+test_that("read_context_csv extracts curated questions with their labels", {
+  res <- read_context_csv(fixture("ANTH243-01_FALL24.csv"), "ANTH243-01_FALL24.csv")
+  expect_true(all(c("course","term","QUES_TEXT","ANS_TEXT","count") %in% names(res)))
+  diff <- res[res$QUES_TEXT == "Difficulty (relative to other courses)", ]
+  expect_setequal(diff$ANS_TEXT, c("Low","Medium"))
+  expect_equal(sum(diff$count), 38)
+  after <- res[res$QUES_TEXT == "My interest in subject after course", ]
+  expect_equal(after$count[after$ANS_TEXT == "High"], 19)
+  expect_false("Year in School" %in% res$QUES_TEXT)
+})
+
+test_that("read_context_xlsx decodes curated questions to labels and counts", {
+  res <- read_context_xlsx(fixture("TEST101-01_FALL25.xlsx"), "TEST101-01_FALL25.xlsx")
+  expect_true(all(c("course","term","QUES_TEXT","ANS_TEXT","count") %in% names(res)))
+  before <- res[res$QUES_TEXT == "My interest in subject before course", ]
+  expect_equal(before$count[before$ANS_TEXT == "Low"], 2)
+  expect_equal(before$count[before$ANS_TEXT == "Medium"], 2)
+  after <- res[res$QUES_TEXT == "My interest in subject after course", ]
+  expect_equal(after$count[after$ANS_TEXT == "High"], 3)
+  expect_false("Year in School." %in% res$QUES_TEXT)
+})
+
+test_that("read_context_file dispatches on extension", {
+  csvres <- read_context_file(fixture("ANTH243-01_FALL24.csv"), "ANTH243-01_FALL24.csv")
+  expect_true("Difficulty (relative to other courses)" %in% csvres$QUES_TEXT)
+  xres <- read_context_file(fixture("TEST101-01_FALL25.xlsx"), "TEST101-01_FALL25.xlsx")
+  expect_true("My interest in subject after course" %in% xres$QUES_TEXT)
+})
+
+test_that("read_context_xlsx matches the real sample mapper text with trailing periods (skipped if absent)", {
+  zip <- file.path("..", "..", "sample-data", "sample-data.zip")
+  skip_if_not(file.exists(zip), "sample-data.zip not present")
+  tmp <- tempfile(); dir.create(tmp); utils::unzip(zip, exdir = tmp)
+  xlsx <- list.files(file.path(tmp, "SOOTs"), pattern = "[.]xlsx$", full.names = TRUE)
+  skip_if(length(xlsx) == 0, "no sample XLSX")
+  res <- read_context_xlsx(xlsx[1], basename(xlsx[1]))
+  expect_false(is.null(res))
+  expect_gt(nrow(res), 0)
+  # the real mapper text carries trailing periods; matching must still find these
+  expect_true("My interest in subject after course" %in% res$QUES_TEXT)
+  expect_true("Expected Grade" %in% res$QUES_TEXT)
+})
+
+test_that("context plot helpers render against fixture data and handle empty input", {
+  library(ggplot2)
+  ctx <- read_context_file(fixture("ANTH243-01_FALL24.csv"), "ANTH243-01_FALL24.csv")
+  for (p in list(plot_interest_shift(ctx), plot_course_demands(ctx),
+                 plot_expected_grade(ctx), plot_material_usefulness(ctx))) {
+    f <- tempfile(fileext = ".png"); ggsave(f, p, width = 6, height = 4); expect_gt(file.info(f)$size, 0)
+  }
+  for (p in list(plot_interest_shift(NULL), plot_course_demands(NULL),
+                 plot_expected_grade(NULL), plot_material_usefulness(NULL))) {
+    f <- tempfile(fileext = ".png"); ggsave(f, p, width = 6, height = 4); expect_gt(file.info(f)$size, 0)
+  }
+})
